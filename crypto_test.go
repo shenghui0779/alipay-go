@@ -2,10 +2,47 @@ package alipay
 
 import (
 	"crypto"
+	"crypto/aes"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
+
+func TestAesCBC(t *testing.T) {
+	key := []byte("AES256Key-32Characters1234567890")
+	iv := key[:aes.BlockSize]
+	plainText := "Iloveyiigo"
+
+	// ZERO_PADDING
+	zero := NewAesCBC(key, iv, AES_ZERO)
+
+	e0b, err := zero.Encrypt([]byte(plainText))
+	assert.Nil(t, err)
+
+	d0b, err := zero.Decrypt(e0b)
+	assert.Nil(t, err)
+	assert.Equal(t, plainText, string(d0b))
+
+	// PKCS5_PADDING
+	pkcs5 := NewAesCBC(key, iv, AES_PKCS5)
+
+	e5b, err := pkcs5.Encrypt([]byte(plainText))
+	assert.Nil(t, err)
+
+	d5b, err := pkcs5.Decrypt(e5b)
+	assert.Nil(t, err)
+	assert.Equal(t, plainText, string(d5b))
+
+	// PKCS7_PADDING
+	pkcs7 := NewAesCBC(key, iv, AES_PKCS7)
+
+	e7b, err := pkcs7.Encrypt([]byte(plainText))
+	assert.Nil(t, err)
+
+	d7b, err := pkcs7.Decrypt(e7b)
+	assert.Nil(t, err)
+	assert.Equal(t, plainText, string(d7b))
+}
 
 func TestRSACrypto(t *testing.T) {
 	publicKey := []byte(`-----BEGIN RSA PUBLIC KEY-----
@@ -45,7 +82,7 @@ t6RsET7ZhCU8m8/6gIS5lZRoJt1aoqL3UyfFdWVA8pZwihDnEHvp1+0yl2BBaAN1
 Vv8zI7kt+uZxD5mBGglKs2wzaHqADBXa5kSznIvkcZSg07UQQYU6
 -----END RSA PRIVATE KEY-----`)
 
-	plainText := "IloveGochat"
+	plainText := "Iloveyiigo"
 
 	pvtKey, err := NewPrivateKeyFromPemBlock(RSA_PKCS1, privateKey)
 

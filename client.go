@@ -16,6 +16,7 @@ import (
 // AlipayClient 支付宝客户端
 type AlipayClient struct {
 	appid   string
+	aesKey  string
 	prvKey  *PrivateKey
 	pubKey  *PublicKey
 	gateway string
@@ -88,6 +89,31 @@ func (c *AlipayClient) Do(ctx context.Context, action *Action, options ...HTTPOp
 	return data, nil
 }
 
+// Decrypt 数据解密
+func (c *AlipayClient) Decrypt(encryptDdata string) (gjson.Result, error) {
+	key, err := base64.StdEncoding.DecodeString(c.aesKey)
+
+	if err != nil {
+		return fail(err)
+	}
+
+	cbc := NewAesCBC(key, []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, AES_PKCS5)
+
+	cipherText, err := base64.StdEncoding.DecodeString(encryptDdata)
+
+	if err != nil {
+		return fail(err)
+	}
+
+	b, err := cbc.Decrypt(cipherText)
+
+	if err != nil {
+		return fail(err)
+	}
+
+	return gjson.ParseBytes(b), nil
+}
+
 // Verify 验证回调通知表单数据
 func (c *AlipayClient) Verify(form url.Values) error {
 	sign, err := base64.StdEncoding.DecodeString(form.Get("sign"))
@@ -116,9 +142,10 @@ func (c *AlipayClient) Verify(form url.Values) error {
 }
 
 // NewAlipayClient 生成支付宝客户端
-func NewAlipayClient(appid string, prvKey *PrivateKey, pubKey *PublicKey) *AlipayClient {
+func NewAlipayClient(appid, aesKey string, prvKey *PrivateKey, pubKey *PublicKey) *AlipayClient {
 	return &AlipayClient{
 		appid:   appid,
+		aesKey:  aesKey,
 		prvKey:  prvKey,
 		pubKey:  pubKey,
 		gateway: "https://openapi.alipay.com/gateway.do",

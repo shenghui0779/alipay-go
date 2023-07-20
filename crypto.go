@@ -1,7 +1,10 @@
 package alipay
 
 import (
+	"bytes"
 	"crypto"
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -12,6 +15,15 @@ import (
 	"path/filepath"
 )
 
+// AESPaddingMode AES填充模式
+type AESPaddingMode int
+
+const (
+	AES_ZERO  AESPaddingMode = 0 // 0
+	AES_PKCS5 AESPaddingMode = 5 // PKCS#5
+	AES_PKCS7 AESPaddingMode = 7 // PKCS#7
+)
+
 // RSAPaddingMode RSA PEM 填充模式
 type RSAPaddingMode int
 
@@ -19,6 +31,84 @@ const (
 	RSA_PKCS1 RSAPaddingMode = 1 // PKCS#1 (格式：`RSA PRIVATE KEY` 和 `RSA PUBLIC KEY`)
 	RSA_PKCS8 RSAPaddingMode = 8 // PKCS#8 (格式：`PRIVATE KEY` 和 `PUBLIC KEY`)
 )
+
+// ------------------------------------ AES ------------------------------------
+
+// AES-CBC 加密模式
+type AesCBC struct {
+	key  []byte
+	iv   []byte
+	mode AESPaddingMode
+}
+
+// Encrypt AES-CBC 加密
+func (c *AesCBC) Encrypt(plainText []byte) ([]byte, error) {
+	block, err := aes.NewCipher(c.key)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if len(c.iv) != block.BlockSize() {
+		return nil, errors.New("IV length must equal block size")
+	}
+
+	switch c.mode {
+	case AES_ZERO:
+		plainText = ZeroPadding(plainText, block.BlockSize())
+	case AES_PKCS5:
+		plainText = PKCS5Padding(plainText, block.BlockSize())
+	case AES_PKCS7:
+		plainText = PKCS5Padding(plainText, len(c.key))
+	}
+
+	cipherText := make([]byte, len(plainText))
+
+	blockMode := cipher.NewCBCEncrypter(block, c.iv)
+	blockMode.CryptBlocks(cipherText, plainText)
+
+	return cipherText, nil
+}
+
+// Decrypt AES-CBC 解密
+func (c *AesCBC) Decrypt(cipherText []byte) ([]byte, error) {
+	block, err := aes.NewCipher(c.key)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if len(c.iv) != block.BlockSize() {
+		return nil, errors.New("IV length must equal block size")
+	}
+
+	plainText := make([]byte, len(cipherText))
+
+	blockMode := cipher.NewCBCDecrypter(block, c.iv)
+	blockMode.CryptBlocks(plainText, cipherText)
+
+	switch c.mode {
+	case AES_ZERO:
+		plainText = ZeroUnPadding(plainText)
+	case AES_PKCS5:
+		plainText = PKCS5Unpadding(plainText, block.BlockSize())
+	case AES_PKCS7:
+		plainText = PKCS5Unpadding(plainText, len(c.key))
+	}
+
+	return plainText, nil
+}
+
+// NewAesCBC 生成 AES-CBC 加密模式
+func NewAesCBC(key, iv []byte, mode AESPaddingMode) *AesCBC {
+	return &AesCBC{
+		key:  key,
+		iv:   iv,
+		mode: mode,
+	}
+}
+
+// ------------------------------------ RSA ------------------------------------
 
 // PrivateKey RSA私钥
 type PrivateKey struct {
@@ -224,4 +314,40 @@ func NewPublicKeyFromDerFile(pemFile string) (*PublicKey, error) {
 	}
 
 	return NewPublicKeyFromDerBlock(b)
+}
+
+func ZeroPadding(cipherText []byte, blockSize int) []byte {
+	padding := blockSize - len(cipherText)%blockSize
+	padText := bytes.Repeat([]byte{0}, padding)
+
+	return append(cipherText, padText...)
+}
+
+func ZeroUnPadding(plainText []byte) []byte {
+	return bytes.TrimRightFunc(plainText, func(r rune) bool {
+		return r == rune(0)
+	})
+}
+
+func PKCS5Padding(cipherText []byte, blockSize int) []byte {
+	padding := blockSize - len(cipherText)%blockSize
+
+	if padding == 0 {
+		padding = blockSize
+	}
+
+	padText := bytes.Repeat([]byte{byte(padding)}, padding)
+
+	return append(cipherText, padText...)
+}
+
+func PKCS5Unpadding(plainText []byte, blockSize int) []byte {
+	length := len(plainText)
+	unpadding := int(plainText[length-1])
+
+	if unpadding < 1 || unpadding > blockSize {
+		unpadding = 0
+	}
+
+	return plainText[:(length - unpadding)]
 }
