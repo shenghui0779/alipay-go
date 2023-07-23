@@ -11,7 +11,7 @@ import (
 func TestAesCBC(t *testing.T) {
 	key := []byte("AES256Key-32Characters1234567890")
 	iv := key[:aes.BlockSize]
-	plainText := "Iloveyiigo"
+	plainText := "ILoveYiigo"
 
 	// ZERO_PADDING
 	zero := NewAesCBC(key, iv, AES_ZERO)
