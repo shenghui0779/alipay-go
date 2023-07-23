@@ -23,13 +23,75 @@ type AlipayClient struct {
 	client  HTTPClient
 }
 
-// SetHTTPClient 设置 HTTP Client
+// SetHTTPClient 设置自定义Client
 func (c *AlipayClient) SetHTTPClient(cli *http.Client) {
 	c.client = NewHTTPClient(cli)
 }
 
+// SetPrivateKeyFromPemBlock 通过PEM字节生成RSA私钥
+func (c *AlipayClient) SetPrivateKeyFromPemBlock(mode RSAPaddingMode, pemBlock []byte) (err error) {
+	c.prvKey, err = NewPrivateKeyFromPemBlock(mode, pemBlock)
+
+	return
+}
+
+// SetPrivateKeyFromPemFile  通过PEM文件生成RSA私钥
+func (c *AlipayClient) SetPrivateKeyFromPemFile(mode RSAPaddingMode, pemFile string) (err error) {
+	c.prvKey, err = NewPrivateKeyFromPemFile(mode, pemFile)
+
+	return
+}
+
+// SetPrivateKeyFromPfxFile 通过pfx(p12)证书生成RSA私钥
+// 注意：证书需采用「TripleDES-SHA1」加密方式
+func (c *AlipayClient) SetPrivateKeyFromPfxFile(pfxFile, password string) (err error) {
+	c.prvKey, err = NewPrivateKeyFromPfxFile(pfxFile, password)
+
+	return
+}
+
+// NewPublicKeyFromPemBlock 通过PEM字节生成RSA公钥
+func (c *AlipayClient) SetPublicKeyFromPemBlock(mode RSAPaddingMode, pemBlock []byte) (err error) {
+	c.pubKey, err = NewPublicKeyFromPemBlock(mode, pemBlock)
+
+	return
+}
+
+// NewPublicKeyFromPemFile 通过PEM文件生成RSA公钥
+func (c *AlipayClient) SetPublicKeyFromPemFile(mode RSAPaddingMode, pemFile string) (err error) {
+	c.pubKey, err = NewPublicKeyFromPemFile(mode, pemFile)
+
+	return
+}
+
+// NewPublicKeyFromDerBlock 通过DER字节生成RSA公钥
+// 注意PEM格式: -----BEGIN CERTIFICATE----- | -----END CERTIFICATE-----
+// DER转换命令: openssl x509 -inform der -in cert.cer -out cert.pem
+func (c *AlipayClient) SetPublicKeyFromDerBlock(pemBlock []byte) (err error) {
+	c.pubKey, err = NewPublicKeyFromDerBlock(pemBlock)
+
+	return
+}
+
+// NewPublicKeyFromDerFile 通过DER证书生成RSA公钥
+// 注意PEM格式: -----BEGIN CERTIFICATE----- | -----END CERTIFICATE-----
+// DER转换命令: openssl x509 -inform der -in cert.cer -out cert.pem
+func (c *AlipayClient) SetPublicKeyFromDerFile(pemFile string) (err error) {
+	c.pubKey, err = NewPublicKeyFromDerFile(pemFile)
+
+	return
+}
+
 // Do 向支付宝网关发送请求
 func (c *AlipayClient) Do(ctx context.Context, action *Action, options ...HTTPOption) (gjson.Result, error) {
+	if c.prvKey == nil {
+		return fail(errors.New("private key not found (forgotten configure?)"))
+	}
+
+	if c.pubKey == nil {
+		return fail(errors.New("public key not found (forgotten configure?)"))
+	}
+
 	body, err := action.URLEncode(c.appid, c.prvKey)
 
 	if err != nil {
@@ -142,12 +204,10 @@ func (c *AlipayClient) Verify(form url.Values) error {
 }
 
 // NewAlipayClient 生成支付宝客户端
-func NewAlipayClient(appid, aesKey string, prvKey *PrivateKey, pubKey *PublicKey) *AlipayClient {
+func NewAlipayClient(appid, aesKey string) *AlipayClient {
 	return &AlipayClient{
 		appid:   appid,
 		aesKey:  aesKey,
-		prvKey:  prvKey,
-		pubKey:  pubKey,
 		gateway: "https://openapi.alipay.com/gateway.do",
 		client:  NewDefaultHTTPClient(),
 	}
