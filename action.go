@@ -4,6 +4,7 @@ import (
 	"crypto"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"strings"
 	"time"
 )
@@ -21,6 +22,10 @@ func (a *Action) RespKey() string {
 
 // URLEncode 签名并生成请求Body
 func (a *Action) URLEncode(appid string, key *PrivateKey) (string, error) {
+	if key == nil {
+		return "", errors.New("private key is nil (forgotten configure?)")
+	}
+
 	v := make(V)
 
 	v.Set("app_id", appid)

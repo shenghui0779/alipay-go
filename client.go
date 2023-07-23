@@ -28,21 +28,21 @@ func (c *AlipayClient) SetHTTPClient(cli *http.Client) {
 	c.client = NewHTTPClient(cli)
 }
 
-// SetPrivateKeyFromPemBlock 通过PEM字节生成RSA私钥
+// SetPrivateKeyFromPemBlock 通过PEM字节设置RSA私钥
 func (c *AlipayClient) SetPrivateKeyFromPemBlock(mode RSAPaddingMode, pemBlock []byte) (err error) {
 	c.prvKey, err = NewPrivateKeyFromPemBlock(mode, pemBlock)
 
 	return
 }
 
-// SetPrivateKeyFromPemFile  通过PEM文件生成RSA私钥
+// SetPrivateKeyFromPemFile 通过PEM文件设置RSA私钥
 func (c *AlipayClient) SetPrivateKeyFromPemFile(mode RSAPaddingMode, pemFile string) (err error) {
 	c.prvKey, err = NewPrivateKeyFromPemFile(mode, pemFile)
 
 	return
 }
 
-// SetPrivateKeyFromPfxFile 通过pfx(p12)证书生成RSA私钥
+// SetPrivateKeyFromPfxFile 通过pfx(p12)证书设置RSA私钥
 // 注意：证书需采用「TripleDES-SHA1」加密方式
 func (c *AlipayClient) SetPrivateKeyFromPfxFile(pfxFile, password string) (err error) {
 	c.prvKey, err = NewPrivateKeyFromPfxFile(pfxFile, password)
@@ -50,21 +50,21 @@ func (c *AlipayClient) SetPrivateKeyFromPfxFile(pfxFile, password string) (err e
 	return
 }
 
-// NewPublicKeyFromPemBlock 通过PEM字节生成RSA公钥
+// NewPublicKeyFromPemBlock 通过PEM字节设置RSA公钥
 func (c *AlipayClient) SetPublicKeyFromPemBlock(mode RSAPaddingMode, pemBlock []byte) (err error) {
 	c.pubKey, err = NewPublicKeyFromPemBlock(mode, pemBlock)
 
 	return
 }
 
-// NewPublicKeyFromPemFile 通过PEM文件生成RSA公钥
+// NewPublicKeyFromPemFile 通过PEM文件设置RSA公钥
 func (c *AlipayClient) SetPublicKeyFromPemFile(mode RSAPaddingMode, pemFile string) (err error) {
 	c.pubKey, err = NewPublicKeyFromPemFile(mode, pemFile)
 
 	return
 }
 
-// NewPublicKeyFromDerBlock 通过DER字节生成RSA公钥
+// NewPublicKeyFromDerBlock 通过DER字节设置RSA公钥
 // 注意PEM格式: -----BEGIN CERTIFICATE----- | -----END CERTIFICATE-----
 // DER转换命令: openssl x509 -inform der -in cert.cer -out cert.pem
 func (c *AlipayClient) SetPublicKeyFromDerBlock(pemBlock []byte) (err error) {
@@ -73,7 +73,7 @@ func (c *AlipayClient) SetPublicKeyFromDerBlock(pemBlock []byte) (err error) {
 	return
 }
 
-// NewPublicKeyFromDerFile 通过DER证书生成RSA公钥
+// NewPublicKeyFromDerFile 通过DER证书设置RSA公钥
 // 注意PEM格式: -----BEGIN CERTIFICATE----- | -----END CERTIFICATE-----
 // DER转换命令: openssl x509 -inform der -in cert.cer -out cert.pem
 func (c *AlipayClient) SetPublicKeyFromDerFile(pemFile string) (err error) {
@@ -84,14 +84,6 @@ func (c *AlipayClient) SetPublicKeyFromDerFile(pemFile string) (err error) {
 
 // Do 向支付宝网关发送请求
 func (c *AlipayClient) Do(ctx context.Context, action *Action, options ...HTTPOption) (gjson.Result, error) {
-	if c.prvKey == nil {
-		return fail(errors.New("private key not found (forgotten configure?)"))
-	}
-
-	if c.pubKey == nil {
-		return fail(errors.New("public key not found (forgotten configure?)"))
-	}
-
 	body, err := action.URLEncode(c.appid, c.prvKey)
 
 	if err != nil {
@@ -130,6 +122,10 @@ func (c *AlipayClient) Do(ctx context.Context, action *Action, options ...HTTPOp
 		hash = crypto.SHA1
 	}
 
+	if c.pubKey == nil {
+		return fail(errors.New("public key is nil (forgotten configure?)"))
+	}
+
 	if errResp := ret.Get("error_response"); errResp.Exists() {
 		if err = c.pubKey.Verify(hash, []byte(errResp.Raw), sign); err != nil {
 			return fail(err)
@@ -152,7 +148,7 @@ func (c *AlipayClient) Do(ctx context.Context, action *Action, options ...HTTPOp
 }
 
 // Decrypt 数据解密
-func (c *AlipayClient) Decrypt(encryptDdata string) (gjson.Result, error) {
+func (c *AlipayClient) Decrypt(encryptData string) (gjson.Result, error) {
 	key, err := base64.StdEncoding.DecodeString(c.aesKey)
 
 	if err != nil {
@@ -161,7 +157,7 @@ func (c *AlipayClient) Decrypt(encryptDdata string) (gjson.Result, error) {
 
 	cbc := NewAesCBC(key, []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, AES_PKCS5)
 
-	cipherText, err := base64.StdEncoding.DecodeString(encryptDdata)
+	cipherText, err := base64.StdEncoding.DecodeString(encryptData)
 
 	if err != nil {
 		return fail(err)
@@ -178,6 +174,10 @@ func (c *AlipayClient) Decrypt(encryptDdata string) (gjson.Result, error) {
 
 // Verify 验证回调通知表单数据
 func (c *AlipayClient) Verify(form url.Values) error {
+	if c.pubKey == nil {
+		return errors.New("public key is nil (forgotten configure?)")
+	}
+
 	sign, err := base64.StdEncoding.DecodeString(form.Get("sign"))
 
 	if err != nil {
@@ -203,7 +203,7 @@ func (c *AlipayClient) Verify(form url.Values) error {
 	return c.pubKey.Verify(hash, []byte(str), sign)
 }
 
-// NewAlipayClient 生成支付宝客户端
+// NewAlipayClient 设置支付宝客户端
 func NewAlipayClient(appid, aesKey string) *AlipayClient {
 	return &AlipayClient{
 		appid:   appid,
