@@ -45,7 +45,7 @@ func (c *AlipayClient) Do(ctx context.Context, action *Action, options ...HTTPOp
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fail(fmt.Errorf("unexpected http status: %d", resp.StatusCode))
+		return fail(fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode))
 	}
 
 	b, err := io.ReadAll(resp.Body)
@@ -87,6 +87,29 @@ func (c *AlipayClient) Do(ctx context.Context, action *Action, options ...HTTPOp
 	}
 
 	return data, nil
+}
+
+// Buffer 向支付宝网关发送请求
+func (c *AlipayClient) Buffer(ctx context.Context, action *Action, options ...HTTPOption) ([]byte, error) {
+	body, err := action.URLEncode(c.appid, c.prvKey)
+
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.client.Do(ctx, http.MethodPost, c.gateway, []byte(body), options...)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode)
+	}
+
+	return io.ReadAll(resp.Body)
 }
 
 // Decrypt 数据解密
