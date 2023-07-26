@@ -5,6 +5,7 @@ import (
 	"encoding/pem"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/tidwall/gjson"
@@ -58,4 +59,106 @@ func LoadCertFromPfxFile(filename, password string) (tls.Certificate, error) {
 	}
 
 	return tls.X509KeyPair(pemData, pemData)
+}
+
+// FormatAlipayPrivateKey 格式化支付宝普通应用秘钥
+func FormatAlipayPrivateKey(mode RSAPaddingMode, pemStr string) string {
+	rawLen := 64
+	keyLen := len(pemStr)
+
+	raws := keyLen / rawLen
+	temp := keyLen % rawLen
+
+	if temp > 0 {
+		raws++
+	}
+
+	start := 0
+	end := start + rawLen
+
+	var builder strings.Builder
+
+	switch mode {
+	case RSA_PKCS1:
+		builder.WriteString("-----BEGIN RSA PRIVATE KEY-----\n")
+	case RSA_PKCS8:
+		builder.WriteString("-----BEGIN PRIVATE KEY-----\n")
+	default:
+		builder.WriteString("-----BEGIN PRIVATE KEY-----\n")
+	}
+
+	for i := 0; i < raws; i++ {
+		if i == raws-1 {
+			builder.WriteString(pemStr[start:])
+		} else {
+			builder.WriteString(pemStr[start:end])
+		}
+
+		builder.WriteByte('\n')
+
+		start += rawLen
+		end = start + rawLen
+	}
+
+	switch mode {
+	case RSA_PKCS1:
+		builder.WriteString("-----END RSA PRIVATE KEY-----\n")
+	case RSA_PKCS8:
+		builder.WriteString("-----END PRIVATE KEY-----\n")
+	default:
+		builder.WriteString("-----END PRIVATE KEY-----\n")
+	}
+
+	return builder.String()
+}
+
+// FormatAlipayPublicKey 格式化支付宝普通支付宝公钥
+func FormatAlipayPublicKey(mode RSAPaddingMode, pemStr string) string {
+	rawLen := 64
+	keyLen := len(pemStr)
+
+	raws := keyLen / rawLen
+	temp := keyLen % rawLen
+
+	if temp > 0 {
+		raws++
+	}
+
+	start := 0
+	end := start + rawLen
+
+	var builder strings.Builder
+
+	switch mode {
+	case RSA_PKCS1:
+		builder.WriteString("-----BEGIN RSA PUBLIC KEY-----\n")
+	case RSA_PKCS8:
+		builder.WriteString("-----BEGIN PUBLIC KEY-----\n")
+	default:
+		builder.WriteString("-----BEGIN PUBLIC KEY-----\n")
+	}
+
+	for i := 0; i < raws; i++ {
+		if i == raws-1 {
+			builder.WriteString(pemStr[start:])
+		} else {
+			builder.WriteString(pemStr[start:end])
+		}
+
+		builder.WriteByte('\n')
+
+		start += rawLen
+		end = start + rawLen
+	}
+
+	switch mode {
+	case RSA_PKCS1:
+		builder.WriteString("-----END RSA PUBLIC KEY-----\n")
+	case RSA_PKCS8:
+		builder.WriteString("-----END PUBLIC KEY-----\n")
+	default:
+		builder.WriteString("-----END PUBLIC KEY-----\n")
+	}
+
+	return builder.String()
 }
