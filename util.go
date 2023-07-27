@@ -62,7 +62,7 @@ func LoadCertFromPfxFile(filename, password string) (tls.Certificate, error) {
 }
 
 // FormatPKCS1PrivateKey 格式化支付宝应用私钥(PKCS#1)
-func FormatPKCS1PrivateKey(pemStr string) (RSAPaddingMode, string) {
+func FormatPKCS1PrivateKey(pemStr string) (RSAPaddingMode, []byte) {
 	rawLen := 64
 	keyLen := len(pemStr)
 
@@ -95,11 +95,11 @@ func FormatPKCS1PrivateKey(pemStr string) (RSAPaddingMode, string) {
 
 	builder.WriteString("-----END RSA PRIVATE KEY-----\n")
 
-	return RSA_PKCS1, builder.String()
+	return RSA_PKCS1, []byte(builder.String())
 }
 
 // FormatPKCS8PrivateKey 格式化支付宝应用私钥(PKCS#8)
-func FormatPKCS8PrivateKey(pemStr string) (RSAPaddingMode, string) {
+func FormatPKCS8PrivateKey(pemStr string) (RSAPaddingMode, []byte) {
 	rawLen := 64
 	keyLen := len(pemStr)
 
@@ -132,11 +132,11 @@ func FormatPKCS8PrivateKey(pemStr string) (RSAPaddingMode, string) {
 
 	builder.WriteString("-----END PRIVATE KEY-----\n")
 
-	return RSA_PKCS8, builder.String()
+	return RSA_PKCS8, []byte(builder.String())
 }
 
 // FormatPKCS1PublicKey 格式化支付宝应用公钥(PKCS#1)
-func FormatPKCS1PublicKey(pemStr string) (RSAPaddingMode, string) {
+func FormatPKCS1PublicKey(pemStr string) (RSAPaddingMode, []byte) {
 	rawLen := 64
 	keyLen := len(pemStr)
 
@@ -169,11 +169,11 @@ func FormatPKCS1PublicKey(pemStr string) (RSAPaddingMode, string) {
 
 	builder.WriteString("-----END RSA PUBLIC KEY-----\n")
 
-	return RSA_PKCS1, builder.String()
+	return RSA_PKCS1, []byte(builder.String())
 }
 
 // FormatPKCS8PublicKey 格式化支付宝应用公钥(PKCS#8)
-func FormatPKCS8PublicKey(pemStr string) (RSAPaddingMode, string) {
+func FormatPKCS8PublicKey(pemStr string) (RSAPaddingMode, []byte) {
 	rawLen := 64
 	keyLen := len(pemStr)
 
@@ -206,5 +206,5 @@ func FormatPKCS8PublicKey(pemStr string) (RSAPaddingMode, string) {
 
 	builder.WriteString("-----END PUBLIC KEY-----\n")
 
-	return RSA_PKCS8, builder.String()
+	return RSA_PKCS8, []byte(builder.String())
 }
