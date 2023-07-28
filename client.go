@@ -21,7 +21,7 @@ type AlipayClient struct {
 	pubKey  *PublicKey
 	gateway string
 	client  HTTPClient
-	logger  func(ctx context.Context, url, body, resp string)
+	logger  func(ctx context.Context, method, url, body, resp string)
 }
 
 // SetHTTPClient 设置自定义Client
@@ -84,16 +84,14 @@ func (c *AlipayClient) SetPublicKeyFromDerFile(pemFile string) (err error) {
 }
 
 // WithLogger 设置日志记录
-func (c *AlipayClient) WithLogger(f func(ctx context.Context, url, body, resp string)) {
+func (c *AlipayClient) WithLogger(f func(ctx context.Context, method, url, body, resp string)) {
 	c.logger = f
 }
 
 // Do 向支付宝网关发送请求
 func (c *AlipayClient) Do(ctx context.Context, action *Action, options ...HTTPOption) (gjson.Result, error) {
-	log := new(ReqLog)
+	log := NewReqLog(http.MethodPost, c.gateway)
 	defer log.Do(ctx, c.logger)
-
-	log.SetURL(c.gateway)
 
 	body, err := action.URLEncode(c.appid, c.prvKey)
 
@@ -170,10 +168,8 @@ func (c *AlipayClient) verifyResp(key string, body []byte) (gjson.Result, error)
 
 // Buffer 向支付宝网关发送请求
 func (c *AlipayClient) Buffer(ctx context.Context, action *Action, options ...HTTPOption) ([]byte, error) {
-	log := new(ReqLog)
+	log := NewReqLog(http.MethodPost, c.gateway)
 	defer log.Do(ctx, c.logger)
-
-	log.SetURL(c.gateway)
 
 	body, err := action.URLEncode(c.appid, c.prvKey)
 
