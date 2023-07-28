@@ -90,6 +90,8 @@ func (c *AlipayClient) Do(ctx context.Context, action *Action, options ...HTTPOp
 		return fail(err)
 	}
 
+	options = append(options, WithHTTPHeader("Content-Type", "application/x-www-form-urlencoded"))
+
 	resp, err := c.client.Do(ctx, http.MethodPost, c.gateway, []byte(body), options...)
 
 	if err != nil {
@@ -108,7 +110,15 @@ func (c *AlipayClient) Do(ctx context.Context, action *Action, options ...HTTPOp
 		return fail(err)
 	}
 
-	ret := gjson.ParseBytes(b)
+	return c.verifyResp(action.RespKey(), b)
+}
+
+func (c *AlipayClient) verifyResp(key string, body []byte) (gjson.Result, error) {
+	if c.pubKey == nil {
+		return fail(errors.New("public key is nil (forgotten configure?)"))
+	}
+
+	ret := gjson.ParseBytes(body)
 
 	sign, err := base64.StdEncoding.DecodeString(ret.Get("sign").String())
 
@@ -122,26 +132,22 @@ func (c *AlipayClient) Do(ctx context.Context, action *Action, options ...HTTPOp
 		hash = crypto.SHA1
 	}
 
-	if c.pubKey == nil {
-		return fail(errors.New("public key is nil (forgotten configure?)"))
-	}
-
 	if errResp := ret.Get("error_response"); errResp.Exists() {
-		if err = c.pubKey.Verify(hash, []byte(errResp.Raw), sign); err != nil {
+		if err = c.pubKey.Verify(hash, []byte(errResp.String()), sign); err != nil {
 			return fail(err)
 		}
 
-		return fail(errors.New(errResp.Raw))
+		return fail(errors.New(errResp.String()))
 	}
 
-	data := ret.Get(action.RespKey())
+	data := ret.Get(key)
 
-	if err = c.pubKey.Verify(hash, []byte(data.Raw), sign); err != nil {
+	if err = c.pubKey.Verify(hash, []byte(data.String()), sign); err != nil {
 		return fail(err)
 	}
 
 	if data.Get("code").String() != CodeOK {
-		return fail(errors.New(data.Raw))
+		return fail(errors.New(data.String()))
 	}
 
 	return data, nil
@@ -154,6 +160,8 @@ func (c *AlipayClient) Buffer(ctx context.Context, action *Action, options ...HT
 	if err != nil {
 		return nil, err
 	}
+
+	options = append(options, WithHTTPHeader("Content-Type", "application/x-www-form-urlencoded"))
 
 	resp, err := c.client.Do(ctx, http.MethodPost, c.gateway, []byte(body), options...)
 
@@ -195,27 +203,29 @@ func (c *AlipayClient) Decrypt(encryptData string) (gjson.Result, error) {
 	return gjson.ParseBytes(b), nil
 }
 
-// Verify 验证回调通知表单数据
-func (c *AlipayClient) Verify(form url.Values) error {
+// VerifyNotify 验证回调通知表单数据
+func (c *AlipayClient) VerifyNotify(form url.Values) (V, error) {
 	if c.pubKey == nil {
-		return errors.New("public key is nil (forgotten configure?)")
+		return nil, errors.New("public key is nil (forgotten configure?)")
 	}
 
 	sign, err := base64.StdEncoding.DecodeString(form.Get("sign"))
 
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	v := make(V)
+	v := V{}
 
 	for key, vals := range form {
-		if len(vals) != 0 {
-			v.Set(key, vals[0])
+		if key == "sign_type" || key == "sign" || len(vals) == 0 {
+			continue
 		}
+
+		v.Set(key, vals[0])
 	}
 
-	str := v.Encode("=", "&", WithIgnoreKeys("sign_type", "sign"))
+	str := v.Encode("=", "&", WithEmptyEncMode(EmptyEncIgnore))
 
 	hash := crypto.SHA256
 
@@ -223,7 +233,11 @@ func (c *AlipayClient) Verify(form url.Values) error {
 		hash = crypto.SHA1
 	}
 
-	return c.pubKey.Verify(hash, []byte(str), sign)
+	if err = c.pubKey.Verify(hash, []byte(str), sign); err != nil {
+		return nil, err
+	}
+
+	return v, nil
 }
 
 // NewAlipayClient 设置支付宝客户端
