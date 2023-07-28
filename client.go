@@ -21,7 +21,7 @@ type AlipayClient struct {
 	pubKey  *PublicKey
 	gateway string
 	client  HTTPClient
-	logger  func(ctx context.Context, method, url, body, resp string)
+	logger  func(ctx context.Context, data map[string]string)
 }
 
 // SetHTTPClient 设置自定义Client
@@ -84,7 +84,7 @@ func (c *AlipayClient) SetPublicKeyFromDerFile(pemFile string) (err error) {
 }
 
 // WithLogger 设置日志记录
-func (c *AlipayClient) WithLogger(f func(ctx context.Context, method, url, body, resp string)) {
+func (c *AlipayClient) WithLogger(f func(ctx context.Context, data map[string]string)) {
 	c.logger = f
 }
 
