@@ -21,6 +21,7 @@ type AlipayClient struct {
 	pubKey  *PublicKey
 	gateway string
 	client  HTTPClient
+	logger  func(ctx context.Context, url, body, resp string)
 }
 
 // SetHTTPClient 设置自定义Client
@@ -82,13 +83,25 @@ func (c *AlipayClient) SetPublicKeyFromDerFile(pemFile string) (err error) {
 	return
 }
 
+// WithLogger 设置日志记录
+func (c *AlipayClient) WithLogger(f func(ctx context.Context, url, body, resp string)) {
+	c.logger = f
+}
+
 // Do 向支付宝网关发送请求
 func (c *AlipayClient) Do(ctx context.Context, action *Action, options ...HTTPOption) (gjson.Result, error) {
+	log := new(ReqLog)
+	defer log.Do(ctx, c.logger)
+
+	log.SetURL(c.gateway)
+
 	body, err := action.URLEncode(c.appid, c.prvKey)
 
 	if err != nil {
 		return fail(err)
 	}
+
+	log.SetBody(body)
 
 	options = append(options, WithHTTPHeader("Content-Type", "application/x-www-form-urlencoded"))
 
@@ -109,6 +122,8 @@ func (c *AlipayClient) Do(ctx context.Context, action *Action, options ...HTTPOp
 	if err != nil {
 		return fail(err)
 	}
+
+	log.SetResp(string(b))
 
 	return c.verifyResp(action.RespKey(), b)
 }
@@ -155,11 +170,18 @@ func (c *AlipayClient) verifyResp(key string, body []byte) (gjson.Result, error)
 
 // Buffer 向支付宝网关发送请求
 func (c *AlipayClient) Buffer(ctx context.Context, action *Action, options ...HTTPOption) ([]byte, error) {
+	log := new(ReqLog)
+	defer log.Do(ctx, c.logger)
+
+	log.SetURL(c.gateway)
+
 	body, err := action.URLEncode(c.appid, c.prvKey)
 
 	if err != nil {
 		return nil, err
 	}
+
+	log.SetBody(body)
 
 	options = append(options, WithHTTPHeader("Content-Type", "application/x-www-form-urlencoded"))
 
@@ -175,7 +197,15 @@ func (c *AlipayClient) Buffer(ctx context.Context, action *Action, options ...HT
 		return nil, fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode)
 	}
 
-	return io.ReadAll(resp.Body)
+	b, err := io.ReadAll(resp.Body)
+
+	if err != nil {
+		return nil, err
+	}
+
+	log.SetResp(string(b))
+
+	return b, nil
 }
 
 // Decrypt 数据解密
