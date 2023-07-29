@@ -20,13 +20,13 @@ type Client struct {
 	prvKey  *PrivateKey
 	pubKey  *PublicKey
 	gateway string
-	client  HTTPClient
+	httpCli HTTPClient
 	logger  func(ctx context.Context, data map[string]string)
 }
 
 // SetHTTPClient 设置自定义Client
 func (c *Client) SetHTTPClient(cli *http.Client) {
-	c.client = NewHTTPClient(cli)
+	c.httpCli = NewHTTPClient(cli)
 }
 
 // SetPrivateKeyFromPemBlock 通过PEM字节设置RSA私钥
@@ -103,7 +103,7 @@ func (c *Client) Do(ctx context.Context, action *Action, options ...HTTPOption) 
 
 	options = append(options, WithHTTPHeader("Content-Type", "application/x-www-form-urlencoded"))
 
-	resp, err := c.client.Do(ctx, http.MethodPost, c.gateway, []byte(body), options...)
+	resp, err := c.httpCli.Do(ctx, http.MethodPost, c.gateway, []byte(body), options...)
 
 	if err != nil {
 		return fail(err)
@@ -181,7 +181,7 @@ func (c *Client) Buffer(ctx context.Context, action *Action, options ...HTTPOpti
 
 	options = append(options, WithHTTPHeader("Content-Type", "application/x-www-form-urlencoded"))
 
-	resp, err := c.client.Do(ctx, http.MethodPost, c.gateway, []byte(body), options...)
+	resp, err := c.httpCli.Do(ctx, http.MethodPost, c.gateway, []byte(body), options...)
 
 	if err != nil {
 		return nil, err
@@ -266,12 +266,12 @@ func (c *Client) VerifyNotify(form url.Values) (V, error) {
 	return v, nil
 }
 
-// NewClient 设置支付宝客户端
+// NewClient 生成支付宝客户端
 func NewClient(appid, aesKey string) *Client {
 	return &Client{
 		appid:   appid,
 		aesKey:  aesKey,
 		gateway: "https://openapi.alipay.com/gateway.do",
-		client:  NewDefaultHTTPClient(),
+		httpCli: NewDefaultHTTPClient(),
 	}
 }
