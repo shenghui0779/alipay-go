@@ -13,8 +13,8 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-// AlipayClient 支付宝客户端
-type AlipayClient struct {
+// Client 支付宝客户端
+type Client struct {
 	appid   string
 	aesKey  string
 	prvKey  *PrivateKey
@@ -25,19 +25,19 @@ type AlipayClient struct {
 }
 
 // SetHTTPClient 设置自定义Client
-func (c *AlipayClient) SetHTTPClient(cli *http.Client) {
+func (c *Client) SetHTTPClient(cli *http.Client) {
 	c.client = NewHTTPClient(cli)
 }
 
 // SetPrivateKeyFromPemBlock 通过PEM字节设置RSA私钥
-func (c *AlipayClient) SetPrivateKeyFromPemBlock(mode RSAPaddingMode, pemBlock []byte) (err error) {
+func (c *Client) SetPrivateKeyFromPemBlock(mode RSAPaddingMode, pemBlock []byte) (err error) {
 	c.prvKey, err = NewPrivateKeyFromPemBlock(mode, pemBlock)
 
 	return
 }
 
 // SetPrivateKeyFromPemFile 通过PEM文件设置RSA私钥
-func (c *AlipayClient) SetPrivateKeyFromPemFile(mode RSAPaddingMode, pemFile string) (err error) {
+func (c *Client) SetPrivateKeyFromPemFile(mode RSAPaddingMode, pemFile string) (err error) {
 	c.prvKey, err = NewPrivateKeyFromPemFile(mode, pemFile)
 
 	return
@@ -45,21 +45,21 @@ func (c *AlipayClient) SetPrivateKeyFromPemFile(mode RSAPaddingMode, pemFile str
 
 // SetPrivateKeyFromPfxFile 通过pfx(p12)证书设置RSA私钥
 // 注意：证书需采用「TripleDES-SHA1」加密方式
-func (c *AlipayClient) SetPrivateKeyFromPfxFile(pfxFile, password string) (err error) {
+func (c *Client) SetPrivateKeyFromPfxFile(pfxFile, password string) (err error) {
 	c.prvKey, err = NewPrivateKeyFromPfxFile(pfxFile, password)
 
 	return
 }
 
 // NewPublicKeyFromPemBlock 通过PEM字节设置RSA公钥
-func (c *AlipayClient) SetPublicKeyFromPemBlock(mode RSAPaddingMode, pemBlock []byte) (err error) {
+func (c *Client) SetPublicKeyFromPemBlock(mode RSAPaddingMode, pemBlock []byte) (err error) {
 	c.pubKey, err = NewPublicKeyFromPemBlock(mode, pemBlock)
 
 	return
 }
 
 // NewPublicKeyFromPemFile 通过PEM文件设置RSA公钥
-func (c *AlipayClient) SetPublicKeyFromPemFile(mode RSAPaddingMode, pemFile string) (err error) {
+func (c *Client) SetPublicKeyFromPemFile(mode RSAPaddingMode, pemFile string) (err error) {
 	c.pubKey, err = NewPublicKeyFromPemFile(mode, pemFile)
 
 	return
@@ -68,7 +68,7 @@ func (c *AlipayClient) SetPublicKeyFromPemFile(mode RSAPaddingMode, pemFile stri
 // NewPublicKeyFromDerBlock 通过DER字节设置RSA公钥
 // 注意PEM格式: -----BEGIN CERTIFICATE----- | -----END CERTIFICATE-----
 // DER转换命令: openssl x509 -inform der -in cert.cer -out cert.pem
-func (c *AlipayClient) SetPublicKeyFromDerBlock(pemBlock []byte) (err error) {
+func (c *Client) SetPublicKeyFromDerBlock(pemBlock []byte) (err error) {
 	c.pubKey, err = NewPublicKeyFromDerBlock(pemBlock)
 
 	return
@@ -77,19 +77,19 @@ func (c *AlipayClient) SetPublicKeyFromDerBlock(pemBlock []byte) (err error) {
 // NewPublicKeyFromDerFile 通过DER证书设置RSA公钥
 // 注意PEM格式: -----BEGIN CERTIFICATE----- | -----END CERTIFICATE-----
 // DER转换命令: openssl x509 -inform der -in cert.cer -out cert.pem
-func (c *AlipayClient) SetPublicKeyFromDerFile(pemFile string) (err error) {
+func (c *Client) SetPublicKeyFromDerFile(pemFile string) (err error) {
 	c.pubKey, err = NewPublicKeyFromDerFile(pemFile)
 
 	return
 }
 
 // WithLogger 设置日志记录
-func (c *AlipayClient) WithLogger(f func(ctx context.Context, data map[string]string)) {
+func (c *Client) WithLogger(f func(ctx context.Context, data map[string]string)) {
 	c.logger = f
 }
 
 // Do 向支付宝网关发送请求
-func (c *AlipayClient) Do(ctx context.Context, action *Action, options ...HTTPOption) (gjson.Result, error) {
+func (c *Client) Do(ctx context.Context, action *Action, options ...HTTPOption) (gjson.Result, error) {
 	log := NewReqLog(http.MethodPost, c.gateway)
 	defer log.Do(ctx, c.logger)
 
@@ -126,7 +126,7 @@ func (c *AlipayClient) Do(ctx context.Context, action *Action, options ...HTTPOp
 	return c.verifyResp(action.RespKey(), b)
 }
 
-func (c *AlipayClient) verifyResp(key string, body []byte) (gjson.Result, error) {
+func (c *Client) verifyResp(key string, body []byte) (gjson.Result, error) {
 	if c.pubKey == nil {
 		return fail(errors.New("public key is nil (forgotten configure?)"))
 	}
@@ -167,7 +167,7 @@ func (c *AlipayClient) verifyResp(key string, body []byte) (gjson.Result, error)
 }
 
 // Buffer 向支付宝网关发送请求
-func (c *AlipayClient) Buffer(ctx context.Context, action *Action, options ...HTTPOption) ([]byte, error) {
+func (c *Client) Buffer(ctx context.Context, action *Action, options ...HTTPOption) ([]byte, error) {
 	log := NewReqLog(http.MethodPost, c.gateway)
 	defer log.Do(ctx, c.logger)
 
@@ -205,7 +205,7 @@ func (c *AlipayClient) Buffer(ctx context.Context, action *Action, options ...HT
 }
 
 // Decrypt 数据解密
-func (c *AlipayClient) Decrypt(encryptData string) (gjson.Result, error) {
+func (c *Client) Decrypt(encryptData string) (gjson.Result, error) {
 	key, err := base64.StdEncoding.DecodeString(c.aesKey)
 
 	if err != nil {
@@ -230,7 +230,7 @@ func (c *AlipayClient) Decrypt(encryptData string) (gjson.Result, error) {
 }
 
 // VerifyNotify 验证回调通知表单数据
-func (c *AlipayClient) VerifyNotify(form url.Values) (V, error) {
+func (c *Client) VerifyNotify(form url.Values) (V, error) {
 	if c.pubKey == nil {
 		return nil, errors.New("public key is nil (forgotten configure?)")
 	}
@@ -266,9 +266,9 @@ func (c *AlipayClient) VerifyNotify(form url.Values) (V, error) {
 	return v, nil
 }
 
-// NewAlipayClient 设置支付宝客户端
-func NewAlipayClient(appid, aesKey string) *AlipayClient {
-	return &AlipayClient{
+// NewClient 设置支付宝客户端
+func NewClient(appid, aesKey string) *Client {
+	return &Client{
 		appid:   appid,
 		aesKey:  aesKey,
 		gateway: "https://openapi.alipay.com/gateway.do",
