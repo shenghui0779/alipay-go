@@ -114,27 +114,39 @@ func (c *ClientV3) URL(path string, query url.Values) string {
 }
 
 // GetJSON GET请求JSON数据
-func (c *ClientV3) GetJSON(ctx context.Context, path string, query url.Values, options ...HTTPOption) (*APIResult, error) {
+func (c *ClientV3) GetJSON(ctx context.Context, path string, query url.Values, options ...V3HeaderOption) (*APIResult, error) {
+	reqID := uuid.NewString()
 	reqURL := c.URL(path, query)
 
 	log := NewReqLog(http.MethodGet, reqURL)
 	defer log.Do(ctx, c.logger)
 
-	authStr, err := c.Authorization(http.MethodGet, path, query, "")
+	reqHeader := V{
+		HeaderAccept:    "application/json",
+		HeaderRequestID: reqID,
+	}
+
+	for _, f := range options {
+		f(reqHeader)
+	}
+
+	authStr, err := c.Authorization(http.MethodGet, path, query, "", reqHeader)
 
 	if err != nil {
 		return nil, err
 	}
 
-	log.Set(HeaderAuth, authStr)
+	reqHeader.Set(HeaderAuth, authStr)
 
-	reqID := uuid.NewString()
+	log.Set("request_header", reqHeader.Encode("=", "&"))
 
-	log.Set(HeaderRequestID, reqID)
+	httpOptions := make([]HTTPOption, 0, len(reqHeader))
 
-	options = append(options, WithHTTPHeader(HeaderAccept, "application/json"), WithHTTPHeader(HeaderAuth, authStr), WithHTTPHeader(HeaderRequestID, reqID))
+	for k, v := range reqHeader {
+		httpOptions = append(httpOptions, WithHTTPHeader(k, v))
+	}
 
-	resp, err := c.httpCli.Do(ctx, http.MethodGet, reqURL, nil, options...)
+	resp, err := c.httpCli.Do(ctx, http.MethodGet, reqURL, nil, httpOptions...)
 
 	if err != nil {
 		return nil, err
@@ -142,12 +154,8 @@ func (c *ClientV3) GetJSON(ctx context.Context, path string, query url.Values, o
 
 	defer resp.Body.Close()
 
+	log.SetRespHeader(resp.Header)
 	log.SetStatusCode(resp.StatusCode)
-
-	log.Set(HeaderTraceID, resp.Header.Get(HeaderTraceID))
-	log.Set(HeaderNonce, resp.Header.Get(HeaderNonce))
-	log.Set(HeaderTimestamp, resp.Header.Get(HeaderTimestamp))
-	log.Set(HeaderSign, resp.Header.Get(HeaderSign))
 
 	b, err := io.ReadAll(resp.Body)
 
@@ -155,7 +163,7 @@ func (c *ClientV3) GetJSON(ctx context.Context, path string, query url.Values, o
 		return nil, err
 	}
 
-	log.SetResp(string(b))
+	log.SetRespBody(string(b))
 
 	// 签名校验
 	if err = c.Verify(ctx, resp.Header, b); err != nil {
@@ -171,7 +179,8 @@ func (c *ClientV3) GetJSON(ctx context.Context, path string, query url.Values, o
 }
 
 // PostJSON POST请求JSON数据
-func (c *ClientV3) PostJSON(ctx context.Context, path string, params X, options ...HTTPOption) (*APIResult, error) {
+func (c *ClientV3) PostJSON(ctx context.Context, path string, params X, options ...V3HeaderOption) (*APIResult, error) {
+	reqID := uuid.NewString()
 	reqURL := c.URL(path, nil)
 
 	log := NewReqLog(http.MethodPost, reqURL)
@@ -183,28 +192,35 @@ func (c *ClientV3) PostJSON(ctx context.Context, path string, params X, options 
 		return nil, err
 	}
 
-	log.SetBody(string(body))
+	log.SetReqBody(string(body))
 
-	authStr, err := c.Authorization(http.MethodPost, path, nil, string(body))
+	reqHeader := V{
+		HeaderAccept:      "application/json",
+		HeaderRequestID:   reqID,
+		HeaderContentType: "application/json;charset=utf-8",
+	}
+
+	for _, f := range options {
+		f(reqHeader)
+	}
+
+	authStr, err := c.Authorization(http.MethodPost, path, nil, string(body), reqHeader)
 
 	if err != nil {
 		return nil, err
 	}
 
-	log.Set(HeaderAuth, authStr)
+	reqHeader.Set(HeaderAuth, authStr)
 
-	reqID := uuid.NewString()
+	log.Set("request_header", reqHeader.Encode("=", "&"))
 
-	log.Set(HeaderRequestID, reqID)
+	httpOptions := make([]HTTPOption, 0, len(reqHeader))
 
-	options = append(options,
-		WithHTTPHeader(HeaderAccept, "application/json"),
-		WithHTTPHeader(HeaderAuth, authStr),
-		WithHTTPHeader(HeaderRequestID, reqID),
-		WithHTTPHeader(HeaderContentType, "application/json;charset=utf-8"),
-	)
+	for k, v := range reqHeader {
+		httpOptions = append(httpOptions, WithHTTPHeader(k, v))
+	}
 
-	resp, err := c.httpCli.Do(ctx, http.MethodPost, reqURL, body, options...)
+	resp, err := c.httpCli.Do(ctx, http.MethodPost, reqURL, body, httpOptions...)
 
 	if err != nil {
 		return nil, err
@@ -212,12 +228,8 @@ func (c *ClientV3) PostJSON(ctx context.Context, path string, params X, options 
 
 	defer resp.Body.Close()
 
+	log.SetRespHeader(resp.Header)
 	log.SetStatusCode(resp.StatusCode)
-
-	log.Set(HeaderTraceID, resp.Header.Get(HeaderTraceID))
-	log.Set(HeaderNonce, resp.Header.Get(HeaderNonce))
-	log.Set(HeaderTimestamp, resp.Header.Get(HeaderTimestamp))
-	log.Set(HeaderSign, resp.Header.Get(HeaderSign))
 
 	b, err := io.ReadAll(resp.Body)
 
@@ -225,7 +237,7 @@ func (c *ClientV3) PostJSON(ctx context.Context, path string, params X, options 
 		return nil, err
 	}
 
-	log.SetResp(string(b))
+	log.SetRespBody(string(b))
 
 	// 签名校验
 	if err = c.Verify(ctx, resp.Header, b); err != nil {
@@ -241,7 +253,8 @@ func (c *ClientV3) PostJSON(ctx context.Context, path string, params X, options 
 }
 
 // PostJSON POST加密请求
-func (c *ClientV3) PostEncrypt(ctx context.Context, path string, params X, options ...HTTPOption) (*APIResult, error) {
+func (c *ClientV3) PostEncrypt(ctx context.Context, path string, params X, options ...V3HeaderOption) (*APIResult, error) {
+	reqID := uuid.NewString()
 	reqURL := c.URL(path, nil)
 
 	log := NewReqLog(http.MethodPost, reqURL)
@@ -253,7 +266,7 @@ func (c *ClientV3) PostEncrypt(ctx context.Context, path string, params X, optio
 		return nil, err
 	}
 
-	log.SetBody(string(body))
+	log.SetReqBody(string(body))
 
 	encryptData, err := c.Encrypt(string(body))
 
@@ -261,29 +274,35 @@ func (c *ClientV3) PostEncrypt(ctx context.Context, path string, params X, optio
 		return nil, err
 	}
 
-	log.Set(HeaderEncryptType, "AES")
 	log.Set("encrypt", encryptData)
 
-	authStr, err := c.Authorization(http.MethodPost, path, nil, encryptData)
+	reqHeader := V{
+		HeaderRequestID:   reqID,
+		HeaderEncryptType: "AES",
+		HeaderContentType: "text/plain;charset=utf-8",
+	}
+
+	for _, f := range options {
+		f(reqHeader)
+	}
+
+	authStr, err := c.Authorization(http.MethodPost, path, nil, encryptData, reqHeader)
 
 	if err != nil {
 		return nil, err
 	}
 
-	log.Set(HeaderAuth, authStr)
+	reqHeader.Set(HeaderAuth, authStr)
 
-	reqID := uuid.NewString()
+	log.Set("request_header", reqHeader.Encode("=", "&"))
 
-	log.Set(HeaderRequestID, reqID)
+	httpOptions := make([]HTTPOption, 0, len(reqHeader))
 
-	options = append(options,
-		WithHTTPHeader(HeaderAuth, authStr),
-		WithHTTPHeader(HeaderRequestID, reqID),
-		WithHTTPHeader(HeaderEncryptType, "AES"),
-		WithHTTPHeader(HeaderContentType, "text/plain;charset=utf-8"),
-	)
+	for k, v := range reqHeader {
+		httpOptions = append(httpOptions, WithHTTPHeader(k, v))
+	}
 
-	resp, err := c.httpCli.Do(ctx, http.MethodPost, reqURL, []byte(encryptData), options...)
+	resp, err := c.httpCli.Do(ctx, http.MethodPost, reqURL, []byte(encryptData), httpOptions...)
 
 	if err != nil {
 		return nil, err
@@ -291,12 +310,8 @@ func (c *ClientV3) PostEncrypt(ctx context.Context, path string, params X, optio
 
 	defer resp.Body.Close()
 
+	log.SetRespHeader(resp.Header)
 	log.SetStatusCode(resp.StatusCode)
-
-	log.Set(HeaderTraceID, resp.Header.Get(HeaderTraceID))
-	log.Set(HeaderNonce, resp.Header.Get(HeaderNonce))
-	log.Set(HeaderTimestamp, resp.Header.Get(HeaderTimestamp))
-	log.Set(HeaderSign, resp.Header.Get(HeaderSign))
 
 	b, err := io.ReadAll(resp.Body)
 
@@ -304,7 +319,7 @@ func (c *ClientV3) PostEncrypt(ctx context.Context, path string, params X, optio
 		return nil, err
 	}
 
-	log.SetResp(string(b))
+	log.SetRespBody(string(b))
 
 	// 签名校验
 	if err = c.Verify(ctx, resp.Header, b); err != nil {
@@ -332,27 +347,38 @@ func (c *ClientV3) PostEncrypt(ctx context.Context, path string, params X, optio
 }
 
 // Upload 上传资源
-func (c *ClientV3) Upload(ctx context.Context, path string, form UploadForm, options ...HTTPOption) (*APIResult, error) {
+func (c *ClientV3) Upload(ctx context.Context, path string, form UploadForm, options ...V3HeaderOption) (*APIResult, error) {
+	reqID := uuid.NewString()
 	reqURL := c.URL(path, nil)
 
 	log := NewReqLog(http.MethodPost, reqURL)
 	defer log.Do(ctx, c.logger)
 
-	authStr, err := c.Authorization(http.MethodPost, path, nil, form.Field("data"))
+	reqHeader := V{
+		HeaderRequestID: reqID,
+	}
+
+	for _, f := range options {
+		f(reqHeader)
+	}
+
+	authStr, err := c.Authorization(http.MethodPost, path, nil, form.Field("data"), reqHeader)
 
 	if err != nil {
 		return nil, err
 	}
 
-	log.Set(HeaderAuth, authStr)
+	reqHeader.Set(HeaderAuth, authStr)
 
-	reqID := uuid.NewString()
+	log.Set("request_header", reqHeader.Encode("=", "&"))
 
-	log.Set(HeaderRequestID, reqID)
+	httpOptions := make([]HTTPOption, 0, len(reqHeader))
 
-	options = append(options, WithHTTPHeader(HeaderAuth, authStr), WithHTTPHeader(HeaderRequestID, reqID))
+	for k, v := range reqHeader {
+		httpOptions = append(httpOptions, WithHTTPHeader(k, v))
+	}
 
-	resp, err := c.httpCli.Do(ctx, http.MethodPost, reqURL, nil, options...)
+	resp, err := c.httpCli.Do(ctx, http.MethodPost, reqURL, nil, httpOptions...)
 
 	if err != nil {
 		return nil, err
@@ -360,12 +386,8 @@ func (c *ClientV3) Upload(ctx context.Context, path string, form UploadForm, opt
 
 	defer resp.Body.Close()
 
+	log.SetRespHeader(resp.Header)
 	log.SetStatusCode(resp.StatusCode)
-
-	log.Set(HeaderTraceID, resp.Header.Get(HeaderTraceID))
-	log.Set(HeaderNonce, resp.Header.Get(HeaderNonce))
-	log.Set(HeaderTimestamp, resp.Header.Get(HeaderTimestamp))
-	log.Set(HeaderSign, resp.Header.Get(HeaderSign))
 
 	b, err := io.ReadAll(resp.Body)
 
@@ -373,7 +395,7 @@ func (c *ClientV3) Upload(ctx context.Context, path string, form UploadForm, opt
 		return nil, err
 	}
 
-	log.SetResp(string(b))
+	log.SetRespBody(string(b))
 
 	// 签名校验
 	if err = c.Verify(ctx, resp.Header, b); err != nil {
@@ -389,7 +411,7 @@ func (c *ClientV3) Upload(ctx context.Context, path string, form UploadForm, opt
 }
 
 // Authorization 生成签名并返回 HTTP Authorization
-func (c *ClientV3) Authorization(method, path string, query url.Values, body string) (string, error) {
+func (c *ClientV3) Authorization(method, path string, query url.Values, body string, header V) (string, error) {
 	if c.prvKey == nil {
 		return "", errors.New("private key not found (forgotten configure?)")
 	}
@@ -413,6 +435,11 @@ func (c *ClientV3) Authorization(method, path string, query url.Values, body str
 
 	if len(body) != 0 {
 		builder.WriteString(body)
+		builder.WriteString("\n")
+	}
+
+	if token := header.Get(HeaderAppAuthToken); len(token) != 0 {
+		builder.WriteString(token)
 		builder.WriteString("\n")
 	}
 

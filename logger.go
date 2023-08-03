@@ -2,6 +2,7 @@ package alipay
 
 import (
 	"context"
+	"net/http"
 	"strconv"
 )
 
@@ -16,13 +17,26 @@ func (l *ReqLog) Set(k, v string) {
 }
 
 // SetBody 设置请求Body
-func (l *ReqLog) SetBody(v string) {
-	l.data["body"] = v
+func (l *ReqLog) SetReqBody(v string) {
+	l.data["request_body"] = v
 }
 
 // SetResp 设置返回报文
-func (l *ReqLog) SetResp(v string) {
-	l.data["resp"] = v
+func (l *ReqLog) SetRespBody(v string) {
+	l.data["response_body"] = v
+}
+
+// SetRespHeader 设置返回头
+func (l *ReqLog) SetRespHeader(h http.Header) {
+	v := V{}
+
+	for key, vals := range h {
+		if len(vals) != 0 {
+			v.Set(key, vals[0])
+		}
+	}
+
+	l.data["response_header"] = v.Encode("=", "&")
 }
 
 // SetStatusCode 设置HTTP状态码

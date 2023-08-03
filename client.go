@@ -90,7 +90,7 @@ func (c *Client) WithLogger(f func(ctx context.Context, data map[string]string))
 }
 
 // Do 向支付宝网关发送请求
-func (c *Client) Do(ctx context.Context, action *Action, options ...HTTPOption) (gjson.Result, error) {
+func (c *Client) Do(ctx context.Context, action *Action) (gjson.Result, error) {
 	log := NewReqLog(http.MethodPost, c.gateway)
 	defer log.Do(ctx, c.logger)
 
@@ -100,17 +100,21 @@ func (c *Client) Do(ctx context.Context, action *Action, options ...HTTPOption) 
 		return fail(err)
 	}
 
-	log.SetBody(body)
+	log.SetReqBody(body)
 
-	options = append(options, WithHTTPHeader("Accept", "application/json; charset=utf-8"), WithHTTPHeader("Content-Type", "application/x-www-form-urlencoded"))
-
-	resp, err := c.httpCli.Do(ctx, http.MethodPost, c.gateway, []byte(body), options...)
+	resp, err := c.httpCli.Do(ctx, http.MethodPost, c.gateway, []byte(body),
+		WithHTTPHeader(HeaderAccept, "application/json"),
+		WithHTTPHeader(HeaderContentType, "application/x-www-form-urlencoded"),
+	)
 
 	if err != nil {
 		return fail(err)
 	}
 
 	defer resp.Body.Close()
+
+	log.SetRespHeader(resp.Header)
+	log.SetStatusCode(resp.StatusCode)
 
 	if resp.StatusCode != http.StatusOK {
 		return fail(fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode))
@@ -122,7 +126,7 @@ func (c *Client) Do(ctx context.Context, action *Action, options ...HTTPOption) 
 		return fail(err)
 	}
 
-	log.SetResp(string(b))
+	log.SetRespBody(string(b))
 
 	if err = c.verifyResp(action.RespKey(), b); err != nil {
 		return fail(err)
@@ -194,7 +198,7 @@ func (c *Client) verifyResp(key string, body []byte) error {
 }
 
 // Buffer 向支付宝网关发送请求
-func (c *Client) Buffer(ctx context.Context, action *Action, options ...HTTPOption) ([]byte, error) {
+func (c *Client) Buffer(ctx context.Context, action *Action) ([]byte, error) {
 	log := NewReqLog(http.MethodPost, c.gateway)
 	defer log.Do(ctx, c.logger)
 
@@ -204,17 +208,18 @@ func (c *Client) Buffer(ctx context.Context, action *Action, options ...HTTPOpti
 		return nil, err
 	}
 
-	log.SetBody(body)
+	log.SetReqBody(body)
 
-	options = append(options, WithHTTPHeader("Content-Type", "application/x-www-form-urlencoded"))
-
-	resp, err := c.httpCli.Do(ctx, http.MethodPost, c.gateway, []byte(body), options...)
+	resp, err := c.httpCli.Do(ctx, http.MethodPost, c.gateway, []byte(body), WithHTTPHeader(HeaderContentType, "application/x-www-form-urlencoded"))
 
 	if err != nil {
 		return nil, err
 	}
 
 	defer resp.Body.Close()
+
+	log.SetRespHeader(resp.Header)
+	log.SetStatusCode(resp.StatusCode)
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode)
@@ -226,7 +231,7 @@ func (c *Client) Buffer(ctx context.Context, action *Action, options ...HTTPOpti
 		return nil, err
 	}
 
-	log.SetResp(string(b))
+	log.SetRespBody(string(b))
 
 	return b, nil
 }

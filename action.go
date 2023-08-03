@@ -174,3 +174,25 @@ func NewAction(method string, options ...ActionOption) *Action {
 
 	return action
 }
+
+// --------------------------- V3 Option ---------------------------
+
+type V3HeaderOption func(v V)
+
+func WithV3AppAuthToken(token string) V3HeaderOption {
+	return func(v V) {
+		v.Set(HeaderAppAuthToken, token)
+	}
+}
+
+func WithV3RootCertSN(sn string) V3HeaderOption {
+	return func(v V) {
+		v.Set(HeaderRootCertSN, sn)
+	}
+}
+
+func WithV3MethodOverride(method string) V3HeaderOption {
+	return func(v V) {
+		v.Set(HeaderMethodOverride, method)
+	}
+}
