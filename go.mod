@@ -3,6 +3,7 @@ module github.com/shenghui0779/alipay
 go 1.20
 
 require (
+	github.com/google/uuid v1.3.0
 	github.com/stretchr/testify v1.8.4
 	github.com/tidwall/gjson v1.15.0
 	golang.org/x/crypto v0.11.0

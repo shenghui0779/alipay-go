@@ -9,17 +9,18 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/tidwall/gjson"
 )
 
 // Client 支付宝客户端
 type Client struct {
+	gateway string
 	appid   string
 	aesKey  string
 	prvKey  *PrivateKey
 	pubKey  *PublicKey
-	gateway string
 	httpCli HTTPClient
 	logger  func(ctx context.Context, data map[string]string)
 }
@@ -93,7 +94,7 @@ func (c *Client) Do(ctx context.Context, action *Action, options ...HTTPOption) 
 	log := NewReqLog(http.MethodPost, c.gateway)
 	defer log.Do(ctx, c.logger)
 
-	body, err := action.URLEncode(c.appid, c.prvKey)
+	body, err := action.FormEncode(c.appid, c.aesKey, c.prvKey)
 
 	if err != nil {
 		return fail(err)
@@ -101,7 +102,7 @@ func (c *Client) Do(ctx context.Context, action *Action, options ...HTTPOption) 
 
 	log.SetBody(body)
 
-	options = append(options, WithHTTPHeader("Content-Type", "application/x-www-form-urlencoded"))
+	options = append(options, WithHTTPHeader("Accept", "application/json; charset=utf-8"), WithHTTPHeader("Content-Type", "application/x-www-form-urlencoded"))
 
 	resp, err := c.httpCli.Do(ctx, http.MethodPost, c.gateway, []byte(body), options...)
 
@@ -123,20 +124,50 @@ func (c *Client) Do(ctx context.Context, action *Action, options ...HTTPOption) 
 
 	log.SetResp(string(b))
 
-	return c.verifyResp(action.RespKey(), b)
+	if err = c.verifyResp(action.RespKey(), b); err != nil {
+		return fail(err)
+	}
+
+	ret := gjson.GetBytes(b, action.RespKey())
+
+	// JSON串，无需解密
+	if strings.HasPrefix(ret.String(), "{") {
+		if code := ret.Get("code").String(); code != CodeOK {
+			return fail(fmt.Errorf("%s | %s (sub_code = %s, sub_msg = %s)", code, ret.Get("msg").String(), ret.Get("sub_code").String(), ret.Get("sub_msg").String()))
+		}
+
+		return ret, nil
+	}
+
+	// 非JSON串，需解密
+	data, err := c.Decrypt(ret.String())
+
+	if err != nil {
+		return fail(err)
+	}
+
+	log.Set("decrypt", data.String())
+
+	return data, nil
 }
 
-func (c *Client) verifyResp(key string, body []byte) (gjson.Result, error) {
+func (c *Client) verifyResp(key string, body []byte) error {
 	if c.pubKey == nil {
-		return fail(errors.New("public key is nil (forgotten configure?)"))
+		return errors.New("public key is nil (forgotten configure?)")
 	}
 
 	ret := gjson.ParseBytes(body)
 
-	sign, err := base64.StdEncoding.DecodeString(ret.Get("sign").String())
+	sign := ret.Get("sign").String()
+
+	if len(sign) == 0 {
+		return nil
+	}
+
+	signByte, err := base64.StdEncoding.DecodeString(sign)
 
 	if err != nil {
-		return fail(err)
+		return err
 	}
 
 	hash := crypto.SHA256
@@ -146,24 +177,20 @@ func (c *Client) verifyResp(key string, body []byte) (gjson.Result, error) {
 	}
 
 	if errResp := ret.Get("error_response"); errResp.Exists() {
-		if err = c.pubKey.Verify(hash, []byte(errResp.String()), sign); err != nil {
-			return fail(err)
+		if err = c.pubKey.Verify(hash, []byte(errResp.Raw), signByte); err != nil {
+			return err
 		}
 
-		return fail(errors.New(errResp.String()))
+		return fmt.Errorf("%s | %s (sub_code = %s, sub_msg = %s)", errResp.Get("code").String(), errResp.Get("msg").String(), errResp.Get("sub_code").String(), errResp.Get("sub_msg").String())
 	}
 
-	data := ret.Get(key)
+	resp := ret.Get(key)
 
-	if err = c.pubKey.Verify(hash, []byte(data.String()), sign); err != nil {
-		return fail(err)
+	if err = c.pubKey.Verify(hash, []byte(resp.Raw), signByte); err != nil {
+		return err
 	}
 
-	if data.Get("code").String() != CodeOK {
-		return fail(errors.New(data.String()))
-	}
-
-	return data, nil
+	return nil
 }
 
 // Buffer 向支付宝网关发送请求
@@ -171,7 +198,7 @@ func (c *Client) Buffer(ctx context.Context, action *Action, options ...HTTPOpti
 	log := NewReqLog(http.MethodPost, c.gateway)
 	defer log.Do(ctx, c.logger)
 
-	body, err := action.URLEncode(c.appid, c.prvKey)
+	body, err := action.FormEncode(c.appid, c.aesKey, c.prvKey)
 
 	if err != nil {
 		return nil, err
@@ -202,6 +229,25 @@ func (c *Client) Buffer(ctx context.Context, action *Action, options ...HTTPOpti
 	log.SetResp(string(b))
 
 	return b, nil
+}
+
+// Encrypt 数据加密
+func (c *Client) Encrypt(plainText string) (string, error) {
+	key, err := base64.StdEncoding.DecodeString(c.aesKey)
+
+	if err != nil {
+		return "", err
+	}
+
+	cbc := NewAesCBC(key, []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, AES_PKCS5)
+
+	b, err := cbc.Encrypt([]byte(plainText))
+
+	if err != nil {
+		return "", err
+	}
+
+	return base64.StdEncoding.EncodeToString(b), nil
 }
 
 // Decrypt 数据解密

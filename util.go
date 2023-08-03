@@ -1,8 +1,11 @@
 package alipay
 
 import (
+	"crypto/rand"
 	"crypto/tls"
+	"encoding/hex"
 	"encoding/pem"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,6 +22,20 @@ var (
 
 const CodeOK = "10000" // API请求成功
 
+const (
+	HeaderAccept         = "Accept"
+	HeaderAuth           = "Authorization"
+	HeaderContentType    = "Content-Type"
+	HeaderRequestID      = "alipay-request-id"
+	HeaderTraceID        = "alipay-trace-id"
+	HeaderRootCertSN     = "alipay-root-cert-sn"
+	HeaderNonce          = "alipay-nonce"
+	HeaderTimestamp      = "alipay-timestamp"
+	HeaderEncryptType    = "alipay-encrypt-type"
+	HeaderMethodOverride = "x-http-method-override"
+	HeaderSign           = "alipay-signature"
+)
+
 type GrantType string
 
 const (
@@ -28,6 +45,20 @@ const (
 
 // X 类型别名
 type X map[string]any
+
+// APIResult API结果 (支付v3)
+type APIResult struct {
+	Code int // HTTP状态码
+	Body gjson.Result
+}
+
+// Nonce 生成指定长度的随机串 (最好是偶数)
+func Nonce(size uint) string {
+	nonce := make([]byte, size/2)
+	io.ReadFull(rand.Reader, nonce)
+
+	return hex.EncodeToString(nonce)
+}
 
 // LoadCertFromPfxFile 通过pfx(p12)证书文件生成TLS证书
 // 注意：证书需采用「TripleDES-SHA1」加密方式

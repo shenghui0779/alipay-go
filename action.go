@@ -13,6 +13,7 @@ type Action struct {
 	method  string
 	params  V
 	bizData X
+	encrypt bool
 }
 
 // RespKey 返回「method」对应的「xxx_response」
@@ -20,8 +21,8 @@ func (a *Action) RespKey() string {
 	return strings.ReplaceAll(a.method, ".", "_") + "_response"
 }
 
-// URLEncode 签名并生成请求Body
-func (a *Action) URLEncode(appid string, key *PrivateKey) (string, error) {
+// FormEncode 签名并生成请求Body
+func (a *Action) FormEncode(appid, aesKey string, key *PrivateKey) (string, error) {
 	if key == nil {
 		return "", errors.New("private key is nil (forgotten configure?)")
 	}
@@ -40,15 +41,13 @@ func (a *Action) URLEncode(appid string, key *PrivateKey) (string, error) {
 		v.Set(key, val)
 	}
 
-	if len(a.bizData) != 0 {
-		bizByte, err := json.Marshal(a.bizData)
+	bizContent, err := a.buildBizContent(aesKey)
 
-		if err != nil {
-			return "", err
-		}
-
-		v.Set("biz_content", string(bizByte))
+	if err != nil {
+		return "", err
 	}
+
+	v.Set("biz_content", bizContent)
 
 	sign, err := key.Sign(crypto.SHA256, []byte(v.Encode("=", "&", WithEmptyEncMode(EmptyEncIgnore))))
 
@@ -59,6 +58,38 @@ func (a *Action) URLEncode(appid string, key *PrivateKey) (string, error) {
 	v.Set("sign", base64.StdEncoding.EncodeToString(sign))
 
 	return v.Encode("=", "&", WithEmptyEncMode(EmptyEncIgnore), WithKVEscape()), nil
+}
+
+func (a *Action) buildBizContent(aesKey string) (string, error) {
+	if len(a.bizData) == 0 {
+		return "", nil
+	}
+
+	bizByte, err := json.Marshal(a.bizData)
+
+	if err != nil {
+		return "", err
+	}
+
+	if !a.encrypt {
+		return string(bizByte), nil
+	}
+
+	key, err := base64.StdEncoding.DecodeString(aesKey)
+
+	if err != nil {
+		return "", err
+	}
+
+	cbc := NewAesCBC(key, []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, AES_PKCS5)
+
+	b, err := cbc.Encrypt(bizByte)
+
+	if err != nil {
+		return "", err
+	}
+
+	return base64.StdEncoding.EncodeToString(b), nil
 }
 
 // ActionOption Action选项
@@ -108,6 +139,13 @@ func WithAppAuthToken(token string) ActionOption {
 	}
 }
 
+// WithKVParam 设置其它非「biz_content」参数
+func WithKVParam(k, v string) ActionOption {
+	return func(a *Action) {
+		a.params.Set(k, v)
+	}
+}
+
 // WithBizContent 设置「biz_content」参数
 func WithBizContent(data X) ActionOption {
 	return func(a *Action) {
@@ -115,10 +153,19 @@ func WithBizContent(data X) ActionOption {
 	}
 }
 
+// WithEncrypt 设置请求加密
+func WithEncrypt() ActionOption {
+	return func(a *Action) {
+		a.encrypt = true
+		a.params.Set("encrypt_type", "AES")
+	}
+}
+
 // NewAction 生成Action
 func NewAction(method string, options ...ActionOption) *Action {
 	action := &Action{
 		method: method,
+		params: make(V),
 	}
 
 	for _, f := range options {
