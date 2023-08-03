@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"net/http"
 	"strings"
 	"time"
 )
@@ -177,22 +178,22 @@ func NewAction(method string, options ...ActionOption) *Action {
 
 // --------------------------- V3 Option ---------------------------
 
-type V3HeaderOption func(v V)
+type V3HeaderOption func(h http.Header)
 
 func WithV3AppAuthToken(token string) V3HeaderOption {
-	return func(v V) {
-		v.Set(HeaderAppAuthToken, token)
+	return func(h http.Header) {
+		h.Set(HeaderAppAuthToken, token)
 	}
 }
 
 func WithV3RootCertSN(sn string) V3HeaderOption {
-	return func(v V) {
-		v.Set(HeaderRootCertSN, sn)
+	return func(h http.Header) {
+		h.Set(HeaderRootCertSN, sn)
 	}
 }
 
 func WithV3MethodOverride(method string) V3HeaderOption {
-	return func(v V) {
-		v.Set(HeaderMethodOverride, method)
+	return func(h http.Header) {
+		h.Set(HeaderMethodOverride, method)
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 // ReqLog 请求日志
@@ -16,27 +17,52 @@ func (l *ReqLog) Set(k, v string) {
 	l.data[k] = v
 }
 
+// SetReqHeader 设置请求头
+func (l *ReqLog) SetReqHeader(h http.Header) {
+	var buf strings.Builder
+
+	for k, vals := range h {
+		for _, v := range vals {
+			if buf.Len() > 0 {
+				buf.WriteString("&")
+			}
+
+			buf.WriteString(k)
+			buf.WriteString("=")
+			buf.WriteString(v)
+		}
+	}
+
+	l.data["request_header"] = buf.String()
+}
+
 // SetBody 设置请求Body
 func (l *ReqLog) SetReqBody(v string) {
 	l.data["request_body"] = v
 }
 
-// SetResp 设置返回报文
-func (l *ReqLog) SetRespBody(v string) {
-	l.data["response_body"] = v
-}
-
 // SetRespHeader 设置返回头
 func (l *ReqLog) SetRespHeader(h http.Header) {
-	v := V{}
+	var buf strings.Builder
 
-	for key, vals := range h {
-		if len(vals) != 0 {
-			v.Set(key, vals[0])
+	for k, vals := range h {
+		for _, v := range vals {
+			if buf.Len() > 0 {
+				buf.WriteString("&")
+			}
+
+			buf.WriteString(k)
+			buf.WriteString("=")
+			buf.WriteString(v)
 		}
 	}
 
-	l.data["response_header"] = v.Encode("=", "&")
+	l.data["response_header"] = buf.String()
+}
+
+// SetResp 设置返回报文
+func (l *ReqLog) SetRespBody(v string) {
+	l.data["response_body"] = v
 }
 
 // SetStatusCode 设置HTTP状态码
