@@ -26,13 +26,14 @@ const (
 	HeaderAccept         = "Accept"
 	HeaderAuth           = "Authorization"
 	HeaderContentType    = "Content-Type"
+	HeaderMethodOverride = "x-http-method-override"
 	HeaderRequestID      = "alipay-request-id"
 	HeaderTraceID        = "alipay-trace-id"
 	HeaderRootCertSN     = "alipay-root-cert-sn"
 	HeaderNonce          = "alipay-nonce"
 	HeaderTimestamp      = "alipay-timestamp"
 	HeaderEncryptType    = "alipay-encrypt-type"
-	HeaderMethodOverride = "x-http-method-override"
+	HeaderAppAuthToken   = "alipay-app-auth-token"
 	HeaderSign           = "alipay-signature"
 )
 

@@ -147,7 +147,6 @@ func (c *ClientV3) GetJSON(ctx context.Context, path string, query url.Values, o
 	log.Set(HeaderTraceID, resp.Header.Get(HeaderTraceID))
 	log.Set(HeaderNonce, resp.Header.Get(HeaderNonce))
 	log.Set(HeaderTimestamp, resp.Header.Get(HeaderTimestamp))
-	log.Set(HeaderRootCertSN, resp.Header.Get(HeaderRootCertSN))
 	log.Set(HeaderSign, resp.Header.Get(HeaderSign))
 
 	b, err := io.ReadAll(resp.Body)
@@ -218,7 +217,6 @@ func (c *ClientV3) PostJSON(ctx context.Context, path string, params X, options 
 	log.Set(HeaderTraceID, resp.Header.Get(HeaderTraceID))
 	log.Set(HeaderNonce, resp.Header.Get(HeaderNonce))
 	log.Set(HeaderTimestamp, resp.Header.Get(HeaderTimestamp))
-	log.Set(HeaderRootCertSN, resp.Header.Get(HeaderRootCertSN))
 	log.Set(HeaderSign, resp.Header.Get(HeaderSign))
 
 	b, err := io.ReadAll(resp.Body)
@@ -298,7 +296,6 @@ func (c *ClientV3) PostEncrypt(ctx context.Context, path string, params X, optio
 	log.Set(HeaderTraceID, resp.Header.Get(HeaderTraceID))
 	log.Set(HeaderNonce, resp.Header.Get(HeaderNonce))
 	log.Set(HeaderTimestamp, resp.Header.Get(HeaderTimestamp))
-	log.Set(HeaderRootCertSN, resp.Header.Get(HeaderRootCertSN))
 	log.Set(HeaderSign, resp.Header.Get(HeaderSign))
 
 	b, err := io.ReadAll(resp.Body)
@@ -368,7 +365,6 @@ func (c *ClientV3) Upload(ctx context.Context, path string, form UploadForm, opt
 	log.Set(HeaderTraceID, resp.Header.Get(HeaderTraceID))
 	log.Set(HeaderNonce, resp.Header.Get(HeaderNonce))
 	log.Set(HeaderTimestamp, resp.Header.Get(HeaderTimestamp))
-	log.Set(HeaderRootCertSN, resp.Header.Get(HeaderRootCertSN))
 	log.Set(HeaderSign, resp.Header.Get(HeaderSign))
 
 	b, err := io.ReadAll(resp.Body)
