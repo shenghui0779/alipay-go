@@ -140,13 +140,7 @@ func (c *ClientV3) GetJSON(ctx context.Context, path string, query url.Values, o
 
 	log.SetReqHeader(reqHeader)
 
-	httpOptions := make([]HTTPOption, 0, len(reqHeader))
-
-	for k, vals := range reqHeader {
-		httpOptions = append(httpOptions, WithHTTPHeader(k, vals...))
-	}
-
-	resp, err := c.httpCli.Do(ctx, http.MethodGet, reqURL, nil, httpOptions...)
+	resp, err := c.httpCli.Do(ctx, http.MethodGet, reqURL, nil, HeaderToHttpOption(reqHeader)...)
 
 	if err != nil {
 		return nil, err
@@ -214,13 +208,7 @@ func (c *ClientV3) PostJSON(ctx context.Context, path string, params X, options 
 
 	log.SetReqHeader(reqHeader)
 
-	httpOptions := make([]HTTPOption, 0, len(reqHeader))
-
-	for k, vals := range reqHeader {
-		httpOptions = append(httpOptions, WithHTTPHeader(k, vals...))
-	}
-
-	resp, err := c.httpCli.Do(ctx, http.MethodPost, reqURL, body, httpOptions...)
+	resp, err := c.httpCli.Do(ctx, http.MethodPost, reqURL, body, HeaderToHttpOption(reqHeader)...)
 
 	if err != nil {
 		return nil, err
@@ -296,13 +284,7 @@ func (c *ClientV3) PostEncrypt(ctx context.Context, path string, params X, optio
 
 	log.SetReqHeader(reqHeader)
 
-	httpOptions := make([]HTTPOption, 0, len(reqHeader))
-
-	for k, vals := range reqHeader {
-		httpOptions = append(httpOptions, WithHTTPHeader(k, vals...))
-	}
-
-	resp, err := c.httpCli.Do(ctx, http.MethodPost, reqURL, []byte(encryptData), httpOptions...)
+	resp, err := c.httpCli.Do(ctx, http.MethodPost, reqURL, []byte(encryptData), HeaderToHttpOption(reqHeader)...)
 
 	if err != nil {
 		return nil, err
@@ -372,13 +354,7 @@ func (c *ClientV3) Upload(ctx context.Context, path string, form UploadForm, opt
 
 	log.SetReqHeader(reqHeader)
 
-	httpOptions := make([]HTTPOption, 0, len(reqHeader))
-
-	for k, vals := range reqHeader {
-		httpOptions = append(httpOptions, WithHTTPHeader(k, vals...))
-	}
-
-	resp, err := c.httpCli.Do(ctx, http.MethodPost, reqURL, nil, httpOptions...)
+	resp, err := c.httpCli.Do(ctx, http.MethodPost, reqURL, nil, HeaderToHttpOption(reqHeader)...)
 
 	if err != nil {
 		return nil, err
