@@ -29,110 +29,9 @@ type ClientV3 struct {
 	logger  func(ctx context.Context, data map[string]string)
 }
 
-// SetHTTPClient 设置自定义Client
-func (c *ClientV3) SetHTTPClient(cli *http.Client) {
-	c.httpCli = NewHTTPClient(cli)
-}
-
-// SetPrivateKeyFromPemBlock 通过PEM字节设置商户RSA私钥
-func (c *ClientV3) SetPrivateKeyFromPemBlock(mode RSAPaddingMode, pemBlock []byte) error {
-	key, err := NewPrivateKeyFromPemBlock(mode, pemBlock)
-
-	if err != nil {
-		return err
-	}
-
-	c.prvKey = key
-
-	return nil
-}
-
-// SetPrivateKeyFromPemFile 通过PEM文件设置商户RSA私钥
-func (c *ClientV3) SetPrivateKeyFromPemFile(mode RSAPaddingMode, pemFile string) error {
-	key, err := NewPrivateKeyFromPemFile(mode, pemFile)
-
-	if err != nil {
-		return err
-	}
-
-	c.prvKey = key
-
-	return nil
-}
-
-// SetPrivateKeyFromPfxFile 通过pfx(p12)证书设置商户RSA私钥
-// 注意：证书需采用「TripleDES-SHA1」加密方式
-func (c *ClientV3) SetPrivateKeyFromPfxFile(pfxFile, password string) error {
-	key, err := NewPrivateKeyFromPfxFile(pfxFile, password)
-
-	if err != nil {
-		return err
-	}
-
-	c.prvKey = key
-
-	return nil
-}
-
-// NewPublicKeyFromPemBlock 通过PEM字节设置平台RSA公钥
-func (c *ClientV3) SetPublicKeyFromPemBlock(mode RSAPaddingMode, pemBlock []byte) error {
-	key, err := NewPublicKeyFromPemBlock(mode, pemBlock)
-
-	if err != nil {
-		return err
-	}
-
-	c.pubKey = key
-
-	return nil
-}
-
-// NewPublicKeyFromPemFile 通过PEM文件设置平台RSA公钥
-func (c *ClientV3) SetPublicKeyFromPemFile(mode RSAPaddingMode, pemFile string) error {
-	key, err := NewPublicKeyFromPemFile(mode, pemFile)
-
-	if err != nil {
-		return err
-	}
-
-	c.pubKey = key
-
-	return nil
-}
-
-// NewPublicKeyFromDerBlock 通过DER字节设置平台RSA公钥
-// 注意PEM格式: -----BEGIN CERTIFICATE----- | -----END CERTIFICATE-----
-// DER转换命令: openssl x509 -inform der -in cert.cer -out cert.pem
-func (c *ClientV3) SetPublicKeyFromDerBlock(pemBlock []byte) error {
-	key, err := NewPublicKeyFromDerBlock(pemBlock)
-
-	if err != nil {
-		return err
-	}
-
-	c.pubKey = key
-
-	return nil
-}
-
-// NewPublicKeyFromDerFile 通过DER证书设置平台RSA公钥
-// 注意PEM格式: -----BEGIN CERTIFICATE----- | -----END CERTIFICATE-----
-// DER转换命令: openssl x509 -inform der -in cert.cer -out cert.pem
-func (c *ClientV3) SetPublicKeyFromDerFile(pemFile string) error {
-	key, err := NewPublicKeyFromDerFile(pemFile)
-
-	if err != nil {
-		return err
-	}
-
-	c.pubKey = key
-
-	return nil
-}
-
-// WithLogger 设置日志记录
-func (c *ClientV3) WithLogger(f func(ctx context.Context, data map[string]string)) {
-	c.logger = f
+// AppID 返回appid
+func (c *ClientV3) AppID() string {
+	return c.appid
 }
 
 // URL 生成请求URL
@@ -552,22 +451,65 @@ func (c *ClientV3) Decrypt(encryptData string) (gjson.Result, error) {
 	return gjson.ParseBytes(b), nil
 }
 
+// V3Option 自定义设置项
+type V3Option func(c *ClientV3)
+
+// WithV3Client 设置自定义 HTTP Client
+func WithV3Client(cli *http.Client) V3Option {
+	return func(c *ClientV3) {
+		c.httpCli = NewHTTPClient(cli)
+	}
+}
+
+// WithV3PrivateKey 设置商户RSA私钥
+func WithV3PrivateKey(key *PrivateKey) V3Option {
+	return func(c *ClientV3) {
+		c.prvKey = key
+	}
+}
+
+// WithV3PublicKey 设置平台RSA公钥
+func WithV3PublicKey(key *PublicKey) V3Option {
+	return func(c *ClientV3) {
+		c.pubKey = key
+	}
+}
+
+// WithV3Logger 设置日志记录
+func WithV3Logger(f func(ctx context.Context, data map[string]string)) V3Option {
+	return func(c *ClientV3) {
+		c.logger = f
+	}
+}
+
 // NewClientV3 生成支付宝客户端V3
-func NewClientV3(appid, aesKey string) *ClientV3 {
-	return &ClientV3{
+func NewClientV3(appid, aesKey string, options ...V3Option) *ClientV3 {
+	c := &ClientV3{
 		host:    "https://openapi.alipay.com",
 		appid:   appid,
 		aesKey:  aesKey,
 		httpCli: NewDefaultHTTPClient(),
 	}
+
+	for _, f := range options {
+		f(c)
+	}
+
+	return c
 }
 
 // NewSandboxV3 生成支付宝沙箱V3
-func NewSandboxV3(appid, aesKey string) *ClientV3 {
-	return &ClientV3{
+func NewSandboxV3(appid, aesKey string, options ...V3Option) *ClientV3 {
+	c := &ClientV3{
 		host:    "http://openapi.sandbox.dl.alipaydev.com",
 		appid:   appid,
 		aesKey:  aesKey,
 		httpCli: NewDefaultHTTPClient(),
 	}
+
+	for _, f := range options {
+		f(c)
+	}
+
+	return c
 }

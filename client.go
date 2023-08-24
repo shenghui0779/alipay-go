@@ -25,110 +25,9 @@ type Client struct {
 	logger  func(ctx context.Context, data map[string]string)
 }
 
-// SetHTTPClient 设置自定义Client
-func (c *Client) SetHTTPClient(cli *http.Client) {
-	c.httpCli = NewHTTPClient(cli)
-}
-
-// SetPrivateKeyFromPemBlock 通过PEM字节设置商户RSA私钥
-func (c *Client) SetPrivateKeyFromPemBlock(mode RSAPaddingMode, pemBlock []byte) error {
-	key, err := NewPrivateKeyFromPemBlock(mode, pemBlock)
-
-	if err != nil {
-		return err
-	}
-
-	c.prvKey = key
-
-	return nil
-}
-
-// SetPrivateKeyFromPemFile 通过PEM文件设置商户RSA私钥
-func (c *Client) SetPrivateKeyFromPemFile(mode RSAPaddingMode, pemFile string) error {
-	key, err := NewPrivateKeyFromPemFile(mode, pemFile)
-
-	if err != nil {
-		return err
-	}
-
-	c.prvKey = key
-
-	return nil
-}
-
-// SetPrivateKeyFromPfxFile 通过pfx(p12)证书设置商户RSA私钥
-// 注意：证书需采用「TripleDES-SHA1」加密方式
-func (c *Client) SetPrivateKeyFromPfxFile(pfxFile, password string) error {
-	key, err := NewPrivateKeyFromPfxFile(pfxFile, password)
-
-	if err != nil {
-		return err
-	}
-
-	c.prvKey = key
-
-	return nil
-}
-
-// NewPublicKeyFromPemBlock 通过PEM字节设置平台RSA公钥
-func (c *Client) SetPublicKeyFromPemBlock(mode RSAPaddingMode, pemBlock []byte) error {
-	key, err := NewPublicKeyFromPemBlock(mode, pemBlock)
-
-	if err != nil {
-		return err
-	}
-
-	c.pubKey = key
-
-	return nil
-}
-
-// NewPublicKeyFromPemFile 通过PEM文件设置平台RSA公钥
-func (c *Client) SetPublicKeyFromPemFile(mode RSAPaddingMode, pemFile string) error {
-	key, err := NewPublicKeyFromPemFile(mode, pemFile)
-
-	if err != nil {
-		return err
-	}
-
-	c.pubKey = key
-
-	return nil
-}
-
-// NewPublicKeyFromDerBlock 通过DER字节设置平台RSA公钥
-// 注意PEM格式: -----BEGIN CERTIFICATE----- | -----END CERTIFICATE-----
-// DER转换命令: openssl x509 -inform der -in cert.cer -out cert.pem
-func (c *Client) SetPublicKeyFromDerBlock(pemBlock []byte) error {
-	key, err := NewPublicKeyFromDerBlock(pemBlock)
-
-	if err != nil {
-		return err
-	}
-
-	c.pubKey = key
-
-	return nil
-}
-
-// NewPublicKeyFromDerFile 通过DER证书设置平台RSA公钥
-// 注意PEM格式: -----BEGIN CERTIFICATE----- | -----END CERTIFICATE-----
-// DER转换命令: openssl x509 -inform der -in cert.cer -out cert.pem
-func (c *Client) SetPublicKeyFromDerFile(pemFile string) error {
-	key, err := NewPublicKeyFromDerFile(pemFile)
-
-	if err != nil {
-		return err
-	}
-
-	c.pubKey = key
-
-	return nil
-}
-
-// WithLogger 设置日志记录
-func (c *Client) WithLogger(f func(ctx context.Context, data map[string]string)) {
-	c.logger = f
+// AppID 返回appid
+func (c *Client) AppID() string {
+	return c.appid
 }
 
 // Do 向支付宝网关发送请求
@@ -359,12 +258,49 @@ func (c *Client) VerifyNotify(form url.Values) (V, error) {
 	return v, nil
 }
 
+// Option 自定义设置项
+type Option func(c *Client)
+
+// WithClient 设置自定义 HTTP Client
+func WithClient(cli *http.Client) Option {
+	return func(c *Client) {
+		c.httpCli = NewHTTPClient(cli)
+	}
+}
+
+// WithPrivateKey 设置商户RSA私钥
+func WithPrivateKey(key *PrivateKey) Option {
+	return func(c *Client) {
+		c.prvKey = key
+	}
+}
+
+// WithPublicKey 设置平台RSA公钥
+func WithPublicKey(key *PublicKey) Option {
+	return func(c *Client) {
+		c.pubKey = key
+	}
+}
+
+// WithLogger 设置日志记录
+func WithLogger(f func(ctx context.Context, data map[string]string)) Option {
+	return func(c *Client) {
+		c.logger = f
+	}
+}
+
 // NewClient 生成支付宝客户端
-func NewClient(appid, aesKey string) *Client {
-	return &Client{
+func NewClient(appid, aesKey string, options ...Option) *Client {
+	c := &Client{
 		appid:   appid,
 		aesKey:  aesKey,
 		gateway: "https://openapi.alipay.com/gateway.do",
 		httpCli: NewDefaultHTTPClient(),
 	}
+
+	for _, f := range options {
+		f(c)
+	}
+
+	return c
 }
