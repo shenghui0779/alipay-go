@@ -45,7 +45,7 @@ func (c *Client) Do(ctx context.Context, action *Action) (gjson.Result, error) {
 
 	resp, err := c.httpCli.Do(ctx, http.MethodPost, c.gateway, []byte(body),
 		WithHTTPHeader(HeaderAccept, "application/json"),
-		WithHTTPHeader(HeaderContentType, "application/x-www-form-urlencoded"),
+		WithHTTPHeader(HeaderContentType, ContentForm),
 	)
 
 	if err != nil {
@@ -69,11 +69,11 @@ func (c *Client) Do(ctx context.Context, action *Action) (gjson.Result, error) {
 
 	log.SetRespBody(string(b))
 
-	if err = c.verifyResp(action.RespKey(), b); err != nil {
+	ret, err := c.verifyResp(action.RespKey(), b)
+
+	if err != nil {
 		return fail(err)
 	}
-
-	ret := gjson.GetBytes(b, action.RespKey())
 
 	// JSON串，无需解密
 	if strings.HasPrefix(ret.String(), "{") {
@@ -91,28 +91,22 @@ func (c *Client) Do(ctx context.Context, action *Action) (gjson.Result, error) {
 		return fail(err)
 	}
 
-	log.Set("decrypt", data.String())
+	log.Set("decrypt", string(data))
 
-	return data, nil
+	return gjson.ParseBytes(data), nil
 }
 
-func (c *Client) verifyResp(key string, body []byte) error {
+func (c *Client) verifyResp(key string, body []byte) (gjson.Result, error) {
 	if c.pubKey == nil {
-		return errors.New("public key is nil (forgotten configure?)")
+		return fail(errors.New("public key is nil (forgotten configure?)"))
 	}
 
 	ret := gjson.ParseBytes(body)
 
-	sign := ret.Get("sign").String()
-
-	if len(sign) == 0 {
-		return nil
-	}
-
-	signByte, err := base64.StdEncoding.DecodeString(sign)
+	signByte, err := base64.StdEncoding.DecodeString(ret.Get("sign").String())
 
 	if err != nil {
-		return err
+		return fail(err)
 	}
 
 	hash := crypto.SHA256
@@ -123,19 +117,24 @@ func (c *Client) verifyResp(key string, body []byte) error {
 
 	if errResp := ret.Get("error_response"); errResp.Exists() {
 		if err = c.pubKey.Verify(hash, []byte(errResp.Raw), signByte); err != nil {
-			return err
+			return fail(err)
 		}
 
-		return fmt.Errorf("%s | %s (sub_code = %s, sub_msg = %s)", errResp.Get("code").String(), errResp.Get("msg").String(), errResp.Get("sub_code").String(), errResp.Get("sub_msg").String())
+		return fail(fmt.Errorf("%s | %s (sub_code = %s, sub_msg = %s)",
+			errResp.Get("code").String(),
+			errResp.Get("msg").String(),
+			errResp.Get("sub_code").String(),
+			errResp.Get("sub_msg").String(),
+		))
 	}
 
 	resp := ret.Get(key)
 
 	if err = c.pubKey.Verify(hash, []byte(resp.Raw), signByte); err != nil {
-		return err
+		return fail(err)
 	}
 
-	return nil
+	return resp, nil
 }
 
 // Buffer 向支付宝网关发送请求
@@ -178,30 +177,24 @@ func (c *Client) Buffer(ctx context.Context, action *Action) ([]byte, error) {
 }
 
 // Encrypt 数据加密
-func (c *Client) Encrypt(plainText string) (string, error) {
+func (c *Client) Encrypt(plainText string) ([]byte, error) {
 	key, err := base64.StdEncoding.DecodeString(c.aesKey)
 
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	cbc := NewAesCBC(key, []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, AES_PKCS5)
 
-	b, err := cbc.Encrypt([]byte(plainText))
-
-	if err != nil {
-		return "", err
-	}
-
-	return base64.StdEncoding.EncodeToString(b), nil
+	return cbc.Encrypt([]byte(plainText))
 }
 
 // Decrypt 数据解密
-func (c *Client) Decrypt(encryptData string) (gjson.Result, error) {
+func (c *Client) Decrypt(encryptData string) ([]byte, error) {
 	key, err := base64.StdEncoding.DecodeString(c.aesKey)
 
 	if err != nil {
-		return fail(err)
+		return nil, err
 	}
 
 	cbc := NewAesCBC(key, []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, AES_PKCS5)
@@ -209,16 +202,25 @@ func (c *Client) Decrypt(encryptData string) (gjson.Result, error) {
 	cipherText, err := base64.StdEncoding.DecodeString(encryptData)
 
 	if err != nil {
-		return fail(err)
+		return nil, err
 	}
 
-	b, err := cbc.Decrypt(cipherText)
+	return cbc.Decrypt(cipherText)
+}
+
+// VerifySign 验证签名
+func (c *Client) VerifySign(hash crypto.Hash, data, sign string) error {
+	if c.pubKey == nil {
+		return errors.New("public key is nil (forgotten configure?)")
+	}
+
+	signByte, err := base64.StdEncoding.DecodeString(sign)
 
 	if err != nil {
-		return fail(err)
+		return err
 	}
 
-	return gjson.ParseBytes(b), nil
+	return c.pubKey.Verify(hash, []byte(data), signByte)
 }
 
 // VerifyNotify 验证回调通知表单数据

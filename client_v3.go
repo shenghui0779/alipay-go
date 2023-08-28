@@ -18,7 +18,7 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-// ClientV3 支付宝客户端V3
+// ClientV3 支付宝V3客户端(仅支持v3版本的接口可用)
 type ClientV3 struct {
 	host    string
 	appid   string
@@ -71,13 +71,13 @@ func (c *ClientV3) GetJSON(ctx context.Context, path string, query url.Values, o
 		f(reqHeader)
 	}
 
-	authStr, err := c.Authorization(http.MethodGet, path, query, "", reqHeader)
+	authStr, err := c.Authorization(http.MethodGet, path, query, nil, reqHeader)
 
 	if err != nil {
 		return nil, err
 	}
 
-	reqHeader.Set(HeaderAuth, authStr)
+	reqHeader.Set(HeaderAuthorization, authStr)
 
 	log.SetReqHeader(reqHeader)
 
@@ -101,7 +101,7 @@ func (c *ClientV3) GetJSON(ctx context.Context, path string, query url.Values, o
 	log.SetRespBody(string(b))
 
 	// 签名校验
-	if err = c.Verify(ctx, resp.Header, b); err != nil {
+	if err = c.Verify(resp.Header, b); err != nil {
 		return nil, err
 	}
 
@@ -133,19 +133,19 @@ func (c *ClientV3) PostJSON(ctx context.Context, path string, params X, options 
 
 	reqHeader.Set(HeaderAccept, "application/json")
 	reqHeader.Set(HeaderRequestID, reqID)
-	reqHeader.Set(HeaderContentType, "application/json;charset=utf-8")
+	reqHeader.Set(HeaderContentType, ContentJSON)
 
 	for _, f := range options {
 		f(reqHeader)
 	}
 
-	authStr, err := c.Authorization(http.MethodPost, path, nil, string(body), reqHeader)
+	authStr, err := c.Authorization(http.MethodPost, path, nil, body, reqHeader)
 
 	if err != nil {
 		return nil, err
 	}
 
-	reqHeader.Set(HeaderAuth, authStr)
+	reqHeader.Set(HeaderAuthorization, authStr)
 
 	log.SetReqHeader(reqHeader)
 
@@ -169,7 +169,7 @@ func (c *ClientV3) PostJSON(ctx context.Context, path string, params X, options 
 	log.SetRespBody(string(b))
 
 	// 签名校验
-	if err = c.Verify(ctx, resp.Header, b); err != nil {
+	if err = c.Verify(resp.Header, b); err != nil {
 		return nil, err
 	}
 
@@ -203,13 +203,13 @@ func (c *ClientV3) PostEncrypt(ctx context.Context, path string, params X, optio
 		return nil, err
 	}
 
-	log.Set("encrypt", encryptData)
+	log.Set("encrypt", string(encryptData))
 
 	reqHeader := http.Header{}
 
 	reqHeader.Set(HeaderRequestID, reqID)
 	reqHeader.Set(HeaderEncryptType, "AES")
-	reqHeader.Set(HeaderContentType, "text/plain;charset=utf-8")
+	reqHeader.Set(HeaderContentType, ContentText)
 
 	for _, f := range options {
 		f(reqHeader)
@@ -221,7 +221,7 @@ func (c *ClientV3) PostEncrypt(ctx context.Context, path string, params X, optio
 		return nil, err
 	}
 
-	reqHeader.Set(HeaderAuth, authStr)
+	reqHeader.Set(HeaderAuthorization, authStr)
 
 	log.SetReqHeader(reqHeader)
 
@@ -245,7 +245,7 @@ func (c *ClientV3) PostEncrypt(ctx context.Context, path string, params X, optio
 	log.SetRespBody(string(b))
 
 	// 签名校验
-	if err = c.Verify(ctx, resp.Header, b); err != nil {
+	if err = c.Verify(resp.Header, b); err != nil {
 		return nil, err
 	}
 
@@ -261,9 +261,9 @@ func (c *ClientV3) PostEncrypt(ctx context.Context, path string, params X, optio
 			return nil, err
 		}
 
-		log.Set("decrypt", data.String())
+		log.Set("decrypt", string(b))
 
-		ret.Body = data
+		ret.Body = gjson.ParseBytes(data)
 	}
 
 	return ret, nil
@@ -285,13 +285,13 @@ func (c *ClientV3) Upload(ctx context.Context, path string, form UploadForm, opt
 		f(reqHeader)
 	}
 
-	authStr, err := c.Authorization(http.MethodPost, path, nil, form.Field("data"), reqHeader)
+	authStr, err := c.Authorization(http.MethodPost, path, nil, []byte(form.Field("data")), reqHeader)
 
 	if err != nil {
 		return nil, err
 	}
 
-	reqHeader.Set(HeaderAuth, authStr)
+	reqHeader.Set(HeaderAuthorization, authStr)
 
 	log.SetReqHeader(reqHeader)
 
@@ -315,7 +315,7 @@ func (c *ClientV3) Upload(ctx context.Context, path string, form UploadForm, opt
 	log.SetRespBody(string(b))
 
 	// 签名校验
-	if err = c.Verify(ctx, resp.Header, b); err != nil {
+	if err = c.Verify(resp.Header, b); err != nil {
 		return nil, err
 	}
 
@@ -328,7 +328,7 @@ func (c *ClientV3) Upload(ctx context.Context, path string, form UploadForm, opt
 }
 
 // Authorization 生成签名并返回 HTTP Authorization
-func (c *ClientV3) Authorization(method, path string, query url.Values, body string, header http.Header) (string, error) {
+func (c *ClientV3) Authorization(method, path string, query url.Values, body []byte, header http.Header) (string, error) {
 	if c.prvKey == nil {
 		return "", errors.New("private key not found (forgotten configure?)")
 	}
@@ -351,7 +351,7 @@ func (c *ClientV3) Authorization(method, path string, query url.Values, body str
 	builder.WriteString("\n")
 
 	if len(body) != 0 {
-		builder.WriteString(body)
+		builder.Write(body)
 		builder.WriteString("\n")
 	}
 
@@ -371,19 +371,13 @@ func (c *ClientV3) Authorization(method, path string, query url.Values, body str
 	return auth, nil
 }
 
-// Verify 验证微信签名
-func (c *ClientV3) Verify(ctx context.Context, header http.Header, body []byte) error {
+// Verify 验证签名
+func (c *ClientV3) Verify(header http.Header, body []byte) error {
 	if c.pubKey == nil {
 		return errors.New("public key not found (forgotten configure?)")
 	}
 
-	sign := header.Get(HeaderSign)
-
-	if len(sign) == 0 {
-		return nil
-	}
-
-	signByte, err := base64.StdEncoding.DecodeString(sign)
+	signByte, err := base64.StdEncoding.DecodeString(header.Get(HeaderSignature))
 
 	if err != nil {
 		return err
@@ -408,30 +402,24 @@ func (c *ClientV3) Verify(ctx context.Context, header http.Header, body []byte) 
 }
 
 // Encrypt 数据加密
-func (c *ClientV3) Encrypt(plainText string) (string, error) {
+func (c *ClientV3) Encrypt(plainText string) ([]byte, error) {
 	key, err := base64.StdEncoding.DecodeString(c.aesKey)
 
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	cbc := NewAesCBC(key, []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, AES_PKCS5)
 
-	b, err := cbc.Encrypt([]byte(plainText))
-
-	if err != nil {
-		return "", err
-	}
-
-	return base64.StdEncoding.EncodeToString(b), nil
+	return cbc.Encrypt([]byte(plainText))
 }
 
 // Decrypt 数据解密
-func (c *ClientV3) Decrypt(encryptData string) (gjson.Result, error) {
+func (c *ClientV3) Decrypt(encryptData string) ([]byte, error) {
 	key, err := base64.StdEncoding.DecodeString(c.aesKey)
 
 	if err != nil {
-		return fail(err)
+		return nil, err
 	}
 
 	cbc := NewAesCBC(key, []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, AES_PKCS5)
@@ -439,16 +427,10 @@ func (c *ClientV3) Decrypt(encryptData string) (gjson.Result, error) {
 	cipherText, err := base64.StdEncoding.DecodeString(encryptData)
 
 	if err != nil {
-		return fail(err)
+		return nil, err
 	}
 
-	b, err := cbc.Decrypt(cipherText)
-
-	if err != nil {
-		return fail(err)
-	}
-
-	return gjson.ParseBytes(b), nil
+	return cbc.Decrypt(cipherText)
 }
 
 // V3Option 自定义设置项

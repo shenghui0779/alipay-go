@@ -24,7 +24,7 @@ const CodeOK = "10000" // API请求成功
 
 const (
 	HeaderAccept         = "Accept"
-	HeaderAuth           = "Authorization"
+	HeaderAuthorization  = "Authorization"
 	HeaderContentType    = "Content-Type"
 	HeaderMethodOverride = "x-http-method-override"
 	HeaderRequestID      = "alipay-request-id"
@@ -34,7 +34,13 @@ const (
 	HeaderTimestamp      = "alipay-timestamp"
 	HeaderEncryptType    = "alipay-encrypt-type"
 	HeaderAppAuthToken   = "alipay-app-auth-token"
-	HeaderSign           = "alipay-signature"
+	HeaderSignature      = "alipay-signature"
+)
+
+const (
+	ContentForm = "application/x-www-form-urlencoded"
+	ContentJSON = "application/json;charset=utf-8"
+	ContentText = "text/plain;charset=utf-8"
 )
 
 type GrantType string
