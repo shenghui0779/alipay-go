@@ -62,10 +62,15 @@ func (c *AesCBC) Encrypt(plainText []byte) ([]byte, error) {
 		plainText = PKCS5Padding(plainText, len(c.key))
 	}
 
+	bm := cipher.NewCBCEncrypter(block, c.iv)
+
+	if len(plainText)%bm.BlockSize() != 0 {
+		return nil, errors.New("input not full blocks")
+	}
+
 	cipherText := make([]byte, len(plainText))
 
-	blockMode := cipher.NewCBCEncrypter(block, c.iv)
-	blockMode.CryptBlocks(cipherText, plainText)
+	bm.CryptBlocks(cipherText, plainText)
 
 	return cipherText, nil
 }
@@ -82,10 +87,15 @@ func (c *AesCBC) Decrypt(cipherText []byte) ([]byte, error) {
 		return nil, errors.New("IV length must equal block size")
 	}
 
+	bm := cipher.NewCBCDecrypter(block, c.iv)
+
+	if len(cipherText)%bm.BlockSize() != 0 {
+		return nil, errors.New("input not full blocks")
+	}
+
 	plainText := make([]byte, len(cipherText))
 
-	blockMode := cipher.NewCBCDecrypter(block, c.iv)
-	blockMode.CryptBlocks(plainText, cipherText)
+	bm.CryptBlocks(plainText, cipherText)
 
 	switch c.mode {
 	case AES_ZERO:
