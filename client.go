@@ -208,19 +208,29 @@ func (c *Client) Decrypt(encryptData string) ([]byte, error) {
 	return cbc.Decrypt(cipherText)
 }
 
-// VerifySign 验证签名
-func (c *Client) VerifySign(hash crypto.Hash, data, sign string) error {
+// DecodeEncryptData 解析加密数据
+func (c *Client) DecodeEncryptData(hash crypto.Hash, data, sign string) ([]byte, error) {
 	if c.pubKey == nil {
-		return errors.New("public key is nil (forgotten configure?)")
+		return nil, errors.New("public key is nil (forgotten configure?)")
 	}
 
 	signByte, err := base64.StdEncoding.DecodeString(sign)
 
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return c.pubKey.Verify(hash, []byte(data), signByte)
+	signData := data
+
+	if !strings.HasPrefix(data, `"`) {
+		signData = `"` + data + `"`
+	}
+
+	if err = c.pubKey.Verify(hash, []byte(signData), signByte); err != nil {
+		return nil, err
+	}
+
+	return c.Decrypt(data)
 }
 
 // VerifyNotify 验证回调通知表单数据
