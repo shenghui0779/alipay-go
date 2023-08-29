@@ -220,13 +220,7 @@ func (c *Client) DecodeEncryptData(hash crypto.Hash, data, sign string) ([]byte,
 		return nil, err
 	}
 
-	signData := data
-
-	if !strings.HasPrefix(data, `"`) {
-		signData = `"` + data + `"`
-	}
-
-	if err = c.pubKey.Verify(hash, []byte(signData), signByte); err != nil {
+	if err = c.pubKey.Verify(hash, []byte(`"`+data+`"`), signByte); err != nil {
 		return nil, err
 	}
 
