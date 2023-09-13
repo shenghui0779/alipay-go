@@ -39,11 +39,9 @@ func (c *ClientV3) URL(path string, query url.Values) string {
 	var builder strings.Builder
 
 	builder.WriteString(c.host)
-
 	if len(path) != 0 && path[0] != '/' {
 		builder.WriteString("/")
 	}
-
 	builder.WriteString(path)
 
 	if len(query) != 0 {
@@ -66,34 +64,28 @@ func (c *ClientV3) GetJSON(ctx context.Context, path string, query url.Values, o
 
 	reqHeader.Set(HeaderAccept, "application/json")
 	reqHeader.Set(HeaderRequestID, reqID)
-
 	for _, f := range options {
 		f(reqHeader)
 	}
 
 	authStr, err := c.Authorization(http.MethodGet, path, query, nil, reqHeader)
-
 	if err != nil {
 		return nil, err
 	}
-
 	reqHeader.Set(HeaderAuthorization, authStr)
 
 	log.SetReqHeader(reqHeader)
 
 	resp, err := c.httpCli.Do(ctx, http.MethodGet, reqURL, nil, HeaderToHttpOption(reqHeader)...)
-
 	if err != nil {
 		return nil, err
 	}
-
 	defer resp.Body.Close()
 
 	log.SetRespHeader(resp.Header)
 	log.SetStatusCode(resp.StatusCode)
 
 	b, err := io.ReadAll(resp.Body)
-
 	if err != nil {
 		return nil, err
 	}
@@ -122,7 +114,6 @@ func (c *ClientV3) PostJSON(ctx context.Context, path string, params X, options 
 	defer log.Do(ctx, c.logger)
 
 	body, err := json.Marshal(params)
-
 	if err != nil {
 		return nil, err
 	}
@@ -134,34 +125,28 @@ func (c *ClientV3) PostJSON(ctx context.Context, path string, params X, options 
 	reqHeader.Set(HeaderAccept, "application/json")
 	reqHeader.Set(HeaderRequestID, reqID)
 	reqHeader.Set(HeaderContentType, ContentJSON)
-
 	for _, f := range options {
 		f(reqHeader)
 	}
 
 	authStr, err := c.Authorization(http.MethodPost, path, nil, body, reqHeader)
-
 	if err != nil {
 		return nil, err
 	}
-
 	reqHeader.Set(HeaderAuthorization, authStr)
 
 	log.SetReqHeader(reqHeader)
 
 	resp, err := c.httpCli.Do(ctx, http.MethodPost, reqURL, body, HeaderToHttpOption(reqHeader)...)
-
 	if err != nil {
 		return nil, err
 	}
-
 	defer resp.Body.Close()
 
 	log.SetRespHeader(resp.Header)
 	log.SetStatusCode(resp.StatusCode)
 
 	b, err := io.ReadAll(resp.Body)
-
 	if err != nil {
 		return nil, err
 	}
@@ -190,7 +175,6 @@ func (c *ClientV3) PostEncrypt(ctx context.Context, path string, params X, optio
 	defer log.Do(ctx, c.logger)
 
 	body, err := json.Marshal(params)
-
 	if err != nil {
 		return nil, err
 	}
@@ -198,11 +182,9 @@ func (c *ClientV3) PostEncrypt(ctx context.Context, path string, params X, optio
 	log.SetReqBody(string(body))
 
 	encryptData, err := c.Encrypt(string(body))
-
 	if err != nil {
 		return nil, err
 	}
-
 	log.Set("encrypt", string(encryptData))
 
 	reqHeader := http.Header{}
@@ -210,34 +192,28 @@ func (c *ClientV3) PostEncrypt(ctx context.Context, path string, params X, optio
 	reqHeader.Set(HeaderRequestID, reqID)
 	reqHeader.Set(HeaderEncryptType, "AES")
 	reqHeader.Set(HeaderContentType, ContentText)
-
 	for _, f := range options {
 		f(reqHeader)
 	}
 
 	authStr, err := c.Authorization(http.MethodPost, path, nil, encryptData, reqHeader)
-
 	if err != nil {
 		return nil, err
 	}
-
 	reqHeader.Set(HeaderAuthorization, authStr)
 
 	log.SetReqHeader(reqHeader)
 
 	resp, err := c.httpCli.Do(ctx, http.MethodPost, reqURL, []byte(encryptData), HeaderToHttpOption(reqHeader)...)
-
 	if err != nil {
 		return nil, err
 	}
-
 	defer resp.Body.Close()
 
 	log.SetRespHeader(resp.Header)
 	log.SetStatusCode(resp.StatusCode)
 
 	b, err := io.ReadAll(resp.Body)
-
 	if err != nil {
 		return nil, err
 	}
@@ -256,7 +232,6 @@ func (c *ClientV3) PostEncrypt(ctx context.Context, path string, params X, optio
 
 	if resp.StatusCode < 400 && len(b) != 0 && !bytes.HasPrefix(b, []byte("{")) {
 		data, err := c.Decrypt(string(b))
-
 		if err != nil {
 			return nil, err
 		}
@@ -280,34 +255,28 @@ func (c *ClientV3) Upload(ctx context.Context, path string, form UploadForm, opt
 	reqHeader := http.Header{}
 
 	reqHeader.Set(HeaderRequestID, reqID)
-
 	for _, f := range options {
 		f(reqHeader)
 	}
 
 	authStr, err := c.Authorization(http.MethodPost, path, nil, []byte(form.Field("data")), reqHeader)
-
 	if err != nil {
 		return nil, err
 	}
-
 	reqHeader.Set(HeaderAuthorization, authStr)
 
 	log.SetReqHeader(reqHeader)
 
 	resp, err := c.httpCli.Do(ctx, http.MethodPost, reqURL, nil, HeaderToHttpOption(reqHeader)...)
-
 	if err != nil {
 		return nil, err
 	}
-
 	defer resp.Body.Close()
 
 	log.SetRespHeader(resp.Header)
 	log.SetStatusCode(resp.StatusCode)
 
 	b, err := io.ReadAll(resp.Body)
-
 	if err != nil {
 		return nil, err
 	}
@@ -347,7 +316,6 @@ func (c *ClientV3) Authorization(method, path string, query url.Values, body []b
 		builder.WriteString("?")
 		builder.WriteString(query.Encode())
 	}
-
 	builder.WriteString("\n")
 
 	if len(body) != 0 {
@@ -361,7 +329,6 @@ func (c *ClientV3) Authorization(method, path string, query url.Values, body []b
 	}
 
 	sign, err := c.prvKey.Sign(crypto.SHA256, []byte(builder.String()))
-
 	if err != nil {
 		return "", err
 	}
@@ -378,7 +345,6 @@ func (c *ClientV3) Verify(header http.Header, body []byte) error {
 	}
 
 	signByte, err := base64.StdEncoding.DecodeString(header.Get(HeaderSignature))
-
 	if err != nil {
 		return err
 	}
@@ -404,7 +370,6 @@ func (c *ClientV3) Verify(header http.Header, body []byte) error {
 // Encrypt 数据加密
 func (c *ClientV3) Encrypt(plainText string) ([]byte, error) {
 	key, err := base64.StdEncoding.DecodeString(c.aesKey)
-
 	if err != nil {
 		return nil, err
 	}
@@ -417,7 +382,6 @@ func (c *ClientV3) Encrypt(plainText string) ([]byte, error) {
 // Decrypt 数据解密
 func (c *ClientV3) Decrypt(encryptData string) ([]byte, error) {
 	key, err := base64.StdEncoding.DecodeString(c.aesKey)
-
 	if err != nil {
 		return nil, err
 	}
@@ -425,7 +389,6 @@ func (c *ClientV3) Decrypt(encryptData string) ([]byte, error) {
 	cbc := NewAesCBC(key, []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, AES_PKCS5)
 
 	cipherText, err := base64.StdEncoding.DecodeString(encryptData)
-
 	if err != nil {
 		return nil, err
 	}

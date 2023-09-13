@@ -43,15 +43,12 @@ func (a *Action) FormEncode(appid, aesKey string, key *PrivateKey) (string, erro
 	}
 
 	bizContent, err := a.buildBizContent(aesKey)
-
 	if err != nil {
 		return "", err
 	}
-
 	v.Set("biz_content", bizContent)
 
 	sign, err := key.Sign(crypto.SHA256, []byte(v.Encode("=", "&", WithEmptyEncMode(EmptyEncIgnore))))
-
 	if err != nil {
 		return "", err
 	}
@@ -67,7 +64,6 @@ func (a *Action) buildBizContent(aesKey string) (string, error) {
 	}
 
 	bizByte, err := json.Marshal(a.bizData)
-
 	if err != nil {
 		return "", err
 	}
@@ -77,7 +73,6 @@ func (a *Action) buildBizContent(aesKey string) (string, error) {
 	}
 
 	key, err := base64.StdEncoding.DecodeString(aesKey)
-
 	if err != nil {
 		return "", err
 	}
@@ -85,7 +80,6 @@ func (a *Action) buildBizContent(aesKey string) (string, error) {
 	cbc := NewAesCBC(key, []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, AES_PKCS5)
 
 	b, err := cbc.Encrypt(bizByte)
-
 	if err != nil {
 		return "", err
 	}

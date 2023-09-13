@@ -36,7 +36,6 @@ func (c *Client) Do(ctx context.Context, action *Action) (gjson.Result, error) {
 	defer log.Do(ctx, c.logger)
 
 	body, err := action.FormEncode(c.appid, c.aesKey, c.prvKey)
-
 	if err != nil {
 		return fail(err)
 	}
@@ -47,11 +46,9 @@ func (c *Client) Do(ctx context.Context, action *Action) (gjson.Result, error) {
 		WithHTTPHeader(HeaderAccept, "application/json"),
 		WithHTTPHeader(HeaderContentType, ContentForm),
 	)
-
 	if err != nil {
 		return fail(err)
 	}
-
 	defer resp.Body.Close()
 
 	log.SetRespHeader(resp.Header)
@@ -62,7 +59,6 @@ func (c *Client) Do(ctx context.Context, action *Action) (gjson.Result, error) {
 	}
 
 	b, err := io.ReadAll(resp.Body)
-
 	if err != nil {
 		return fail(err)
 	}
@@ -70,7 +66,6 @@ func (c *Client) Do(ctx context.Context, action *Action) (gjson.Result, error) {
 	log.SetRespBody(string(b))
 
 	ret, err := c.verifyResp(action.RespKey(), b)
-
 	if err != nil {
 		return fail(err)
 	}
@@ -86,7 +81,6 @@ func (c *Client) Do(ctx context.Context, action *Action) (gjson.Result, error) {
 
 	// 非JSON串，需解密
 	data, err := c.Decrypt(ret.String())
-
 	if err != nil {
 		return fail(err)
 	}
@@ -104,13 +98,11 @@ func (c *Client) verifyResp(key string, body []byte) (gjson.Result, error) {
 	ret := gjson.ParseBytes(body)
 
 	signByte, err := base64.StdEncoding.DecodeString(ret.Get("sign").String())
-
 	if err != nil {
 		return fail(err)
 	}
 
 	hash := crypto.SHA256
-
 	if ret.Get("sign_type").String() == "RSA" {
 		hash = crypto.SHA1
 	}
@@ -129,7 +121,6 @@ func (c *Client) verifyResp(key string, body []byte) (gjson.Result, error) {
 	}
 
 	resp := ret.Get(key)
-
 	if err = c.pubKey.Verify(hash, []byte(resp.Raw), signByte); err != nil {
 		return fail(err)
 	}
@@ -143,7 +134,6 @@ func (c *Client) Buffer(ctx context.Context, action *Action) ([]byte, error) {
 	defer log.Do(ctx, c.logger)
 
 	body, err := action.FormEncode(c.appid, c.aesKey, c.prvKey)
-
 	if err != nil {
 		return nil, err
 	}
@@ -151,7 +141,6 @@ func (c *Client) Buffer(ctx context.Context, action *Action) ([]byte, error) {
 	log.SetReqBody(body)
 
 	resp, err := c.httpCli.Do(ctx, http.MethodPost, c.gateway, []byte(body), WithHTTPHeader(HeaderContentType, "application/x-www-form-urlencoded"))
-
 	if err != nil {
 		return nil, err
 	}
@@ -166,7 +155,6 @@ func (c *Client) Buffer(ctx context.Context, action *Action) ([]byte, error) {
 	}
 
 	b, err := io.ReadAll(resp.Body)
-
 	if err != nil {
 		return nil, err
 	}
@@ -179,7 +167,6 @@ func (c *Client) Buffer(ctx context.Context, action *Action) ([]byte, error) {
 // Encrypt 数据加密
 func (c *Client) Encrypt(plainText string) ([]byte, error) {
 	key, err := base64.StdEncoding.DecodeString(c.aesKey)
-
 	if err != nil {
 		return nil, err
 	}
@@ -192,7 +179,6 @@ func (c *Client) Encrypt(plainText string) ([]byte, error) {
 // Decrypt 数据解密
 func (c *Client) Decrypt(encryptData string) ([]byte, error) {
 	key, err := base64.StdEncoding.DecodeString(c.aesKey)
-
 	if err != nil {
 		return nil, err
 	}
@@ -200,7 +186,6 @@ func (c *Client) Decrypt(encryptData string) ([]byte, error) {
 	cbc := NewAesCBC(key, []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, AES_PKCS5)
 
 	cipherText, err := base64.StdEncoding.DecodeString(encryptData)
-
 	if err != nil {
 		return nil, err
 	}
@@ -215,7 +200,6 @@ func (c *Client) DecodeEncryptData(hash crypto.Hash, data, sign string) ([]byte,
 	}
 
 	signByte, err := base64.StdEncoding.DecodeString(sign)
-
 	if err != nil {
 		return nil, err
 	}
@@ -234,7 +218,6 @@ func (c *Client) VerifyNotify(form url.Values) (V, error) {
 	}
 
 	sign, err := base64.StdEncoding.DecodeString(form.Get("sign"))
-
 	if err != nil {
 		return nil, err
 	}
@@ -252,7 +235,6 @@ func (c *Client) VerifyNotify(form url.Values) (V, error) {
 	str := v.Encode("=", "&", WithEmptyEncMode(EmptyEncIgnore))
 
 	hash := crypto.SHA256
-
 	if form.Get("sign_type") == "RSA" {
 		hash = crypto.SHA1
 	}

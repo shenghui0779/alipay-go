@@ -44,7 +44,6 @@ type AesCBC struct {
 // Encrypt AES-CBC 加密
 func (c *AesCBC) Encrypt(plainText []byte) ([]byte, error) {
 	block, err := aes.NewCipher(c.key)
-
 	if err != nil {
 		return nil, err
 	}
@@ -63,13 +62,11 @@ func (c *AesCBC) Encrypt(plainText []byte) ([]byte, error) {
 	}
 
 	bm := cipher.NewCBCEncrypter(block, c.iv)
-
 	if len(plainText)%bm.BlockSize() != 0 {
 		return nil, errors.New("input not full blocks")
 	}
 
 	cipherText := make([]byte, len(plainText))
-
 	bm.CryptBlocks(cipherText, plainText)
 
 	return cipherText, nil
@@ -78,7 +75,6 @@ func (c *AesCBC) Encrypt(plainText []byte) ([]byte, error) {
 // Decrypt AES-CBC 解密
 func (c *AesCBC) Decrypt(cipherText []byte) ([]byte, error) {
 	block, err := aes.NewCipher(c.key)
-
 	if err != nil {
 		return nil, err
 	}
@@ -88,13 +84,11 @@ func (c *AesCBC) Decrypt(cipherText []byte) ([]byte, error) {
 	}
 
 	bm := cipher.NewCBCDecrypter(block, c.iv)
-
 	if len(cipherText)%bm.BlockSize() != 0 {
 		return nil, errors.New("input not full blocks")
 	}
 
 	plainText := make([]byte, len(cipherText))
-
 	bm.CryptBlocks(plainText, cipherText)
 
 	switch c.mode {
@@ -148,19 +142,12 @@ func (pk *PrivateKey) Sign(hash crypto.Hash, data []byte) ([]byte, error) {
 	h := hash.New()
 	h.Write(data)
 
-	signature, err := rsa.SignPKCS1v15(rand.Reader, pk.key, hash, h.Sum(nil))
-
-	if err != nil {
-		return nil, err
-	}
-
-	return signature, nil
+	return rsa.SignPKCS1v15(rand.Reader, pk.key, hash, h.Sum(nil))
 }
 
 // NewPrivateKeyFromPemBlock 通过PEM字节生成RSA私钥
 func NewPrivateKeyFromPemBlock(mode RSAPaddingMode, pemBlock []byte) (*PrivateKey, error) {
 	block, _ := pem.Decode(pemBlock)
-
 	if block == nil {
 		return nil, errors.New("no PEM data is found")
 	}
@@ -187,13 +174,11 @@ func NewPrivateKeyFromPemBlock(mode RSAPaddingMode, pemBlock []byte) (*PrivateKe
 // NewPrivateKeyFromPemFile  通过PEM文件生成RSA私钥
 func NewPrivateKeyFromPemFile(mode RSAPaddingMode, pemFile string) (*PrivateKey, error) {
 	keyPath, err := filepath.Abs(pemFile)
-
 	if err != nil {
 		return nil, err
 	}
 
 	b, err := os.ReadFile(keyPath)
-
 	if err != nil {
 		return nil, err
 	}
@@ -205,7 +190,6 @@ func NewPrivateKeyFromPemFile(mode RSAPaddingMode, pemFile string) (*PrivateKey,
 // 注意：证书需采用「TripleDES-SHA1」加密方式
 func NewPrivateKeyFromPfxFile(pfxFile, password string) (*PrivateKey, error) {
 	cert, err := LoadCertFromPfxFile(pfxFile, password)
-
 	if err != nil {
 		return nil, err
 	}
@@ -247,7 +231,6 @@ func (pk *PublicKey) Verify(hash crypto.Hash, data, signature []byte) error {
 // NewPublicKeyFromPemBlock 通过PEM字节生成RSA公钥
 func NewPublicKeyFromPemBlock(mode RSAPaddingMode, pemBlock []byte) (*PublicKey, error) {
 	block, _ := pem.Decode(pemBlock)
-
 	if block == nil {
 		return nil, errors.New("no PEM data is found")
 	}
@@ -274,13 +257,11 @@ func NewPublicKeyFromPemBlock(mode RSAPaddingMode, pemBlock []byte) (*PublicKey,
 // NewPublicKeyFromPemFile 通过PEM文件生成RSA公钥
 func NewPublicKeyFromPemFile(mode RSAPaddingMode, pemFile string) (*PublicKey, error) {
 	keyPath, err := filepath.Abs(pemFile)
-
 	if err != nil {
 		return nil, err
 	}
 
 	b, err := os.ReadFile(keyPath)
-
 	if err != nil {
 		return nil, err
 	}
@@ -293,13 +274,11 @@ func NewPublicKeyFromPemFile(mode RSAPaddingMode, pemFile string) (*PublicKey, e
 // DER转换命令: openssl x509 -inform der -in cert.cer -out cert.pem
 func NewPublicKeyFromDerBlock(pemBlock []byte) (*PublicKey, error) {
 	block, _ := pem.Decode(pemBlock)
-
 	if block == nil {
 		return nil, errors.New("no PEM data is found")
 	}
 
 	cert, err := x509.ParseCertificate(block.Bytes)
-
 	if err != nil {
 		return nil, err
 	}
@@ -312,13 +291,11 @@ func NewPublicKeyFromDerBlock(pemBlock []byte) (*PublicKey, error) {
 // DER转换命令: openssl x509 -inform der -in cert.cer -out cert.pem
 func NewPublicKeyFromDerFile(pemFile string) (*PublicKey, error) {
 	keyPath, err := filepath.Abs(pemFile)
-
 	if err != nil {
 		return nil, err
 	}
 
 	b, err := os.ReadFile(keyPath)
-
 	if err != nil {
 		return nil, err
 	}
@@ -341,7 +318,6 @@ func ZeroUnPadding(plainText []byte) []byte {
 
 func PKCS5Padding(cipherText []byte, blockSize int) []byte {
 	padding := blockSize - len(cipherText)%blockSize
-
 	if padding == 0 {
 		padding = blockSize
 	}

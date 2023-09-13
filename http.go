@@ -84,7 +84,6 @@ func (form *uploadform) Write(w *multipart.Writer) error {
 
 	for _, v := range form.files {
 		part, err := w.CreateFormFile(v.fieldname, v.filename)
-
 		if err != nil {
 			return err
 		}
@@ -155,7 +154,6 @@ type httpclient struct {
 
 func (c *httpclient) Do(ctx context.Context, method, reqURL string, body []byte, options ...HTTPOption) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(ctx, method, reqURL, bytes.NewReader(body))
-
 	if err != nil {
 		return nil, err
 	}
@@ -187,7 +185,6 @@ func (c *httpclient) Do(ctx context.Context, method, reqURL string, body []byte,
 	}
 
 	resp, err := c.client.Do(req)
-
 	if err != nil {
 		// If the context has been canceled, the context's error is probably more useful.
 		select {
