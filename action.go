@@ -22,8 +22,8 @@ func (a *Action) RespKey() string {
 	return strings.ReplaceAll(a.method, ".", "_") + "_response"
 }
 
-// FormEncode 签名并生成请求Body
-func (a *Action) FormEncode(appid, aesKey string, key *PrivateKey) (string, error) {
+// Encode 签名并生成请求Body
+func (a *Action) Encode(appid, aesKey string, key *PrivateKey) (string, error) {
 	if key == nil {
 		return "", errors.New("private key is nil (forgotten configure?)")
 	}
@@ -131,6 +131,13 @@ func WithRefreshToken(token string) ActionOption {
 func WithAppAuthToken(token string) ActionOption {
 	return func(a *Action) {
 		a.params.Set("app_auth_token", token)
+	}
+}
+
+// WithScene 设置业务场景描述
+func WithScene(scene string) ActionOption {
+	return func(a *Action) {
+		a.params.Set("scene", scene)
 	}
 }
 

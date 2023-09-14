@@ -31,11 +31,13 @@ func (c *Client) AppID() string {
 }
 
 // Do 向支付宝网关发送请求
-func (c *Client) Do(ctx context.Context, action *Action) (gjson.Result, error) {
+func (c *Client) Do(ctx context.Context, method string, options ...ActionOption) (gjson.Result, error) {
 	log := NewReqLog(http.MethodPost, c.gateway)
 	defer log.Do(ctx, c.logger)
 
-	body, err := action.FormEncode(c.appid, c.aesKey, c.prvKey)
+	action := NewAction(method, options...)
+
+	body, err := action.Encode(c.appid, c.aesKey, c.prvKey)
 	if err != nil {
 		return fail(err)
 	}
@@ -46,6 +48,65 @@ func (c *Client) Do(ctx context.Context, action *Action) (gjson.Result, error) {
 		WithHTTPHeader(HeaderAccept, "application/json"),
 		WithHTTPHeader(HeaderContentType, ContentForm),
 	)
+	if err != nil {
+		return fail(err)
+	}
+	defer resp.Body.Close()
+
+	log.SetRespHeader(resp.Header)
+	log.SetStatusCode(resp.StatusCode)
+
+	if resp.StatusCode != http.StatusOK {
+		return fail(fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode))
+	}
+
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fail(err)
+	}
+
+	log.SetRespBody(string(b))
+
+	ret, err := c.verifyResp(action.RespKey(), b)
+	if err != nil {
+		return fail(err)
+	}
+
+	// JSON串，无需解密
+	if strings.HasPrefix(ret.String(), "{") {
+		if code := ret.Get("code").String(); code != CodeOK {
+			return fail(fmt.Errorf("%s | %s (sub_code = %s, sub_msg = %s)", code, ret.Get("msg").String(), ret.Get("sub_code").String(), ret.Get("sub_msg").String()))
+		}
+
+		return ret, nil
+	}
+
+	// 非JSON串，需解密
+	data, err := c.Decrypt(ret.String())
+	if err != nil {
+		return fail(err)
+	}
+
+	log.Set("decrypt", string(data))
+
+	return gjson.ParseBytes(data), nil
+}
+
+// Upload 文件上传，参考：https://opendocs.alipay.com/apis/api_4/alipay.merchant.item.file.upload
+func (c *Client) Upload(ctx context.Context, method string, form UploadForm, options ...ActionOption) (gjson.Result, error) {
+	log := NewReqLog(http.MethodPost, c.gateway)
+	defer log.Do(ctx, c.logger)
+
+	action := NewAction(method, options...)
+
+	query, err := action.Encode(c.appid, c.aesKey, c.prvKey)
+	if err != nil {
+		return fail(err)
+	}
+
+	log.Set("query", query)
+
+	resp, err := c.httpCli.Upload(ctx, c.gateway+"?"+query, form, WithHTTPHeader(HeaderAccept, "application/json"))
 	if err != nil {
 		return fail(err)
 	}
@@ -128,40 +189,16 @@ func (c *Client) verifyResp(key string, body []byte) (gjson.Result, error) {
 	return resp, nil
 }
 
-// Buffer 向支付宝网关发送请求
-func (c *Client) Buffer(ctx context.Context, action *Action) ([]byte, error) {
-	log := NewReqLog(http.MethodPost, c.gateway)
-	defer log.Do(ctx, c.logger)
+// PageExecute 致敬官方SDK
+func (c *Client) PageExecute(method string, options ...ActionOption) (string, error) {
+	action := NewAction(method, options...)
 
-	body, err := action.FormEncode(c.appid, c.aesKey, c.prvKey)
+	query, err := action.Encode(c.appid, c.aesKey, c.prvKey)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	log.SetReqBody(body)
-
-	resp, err := c.httpCli.Do(ctx, http.MethodPost, c.gateway, []byte(body), WithHTTPHeader(HeaderContentType, "application/x-www-form-urlencoded"))
-	if err != nil {
-		return nil, err
-	}
-
-	defer resp.Body.Close()
-
-	log.SetRespHeader(resp.Header)
-	log.SetStatusCode(resp.StatusCode)
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("HTTP Request Error, StatusCode = %d", resp.StatusCode)
-	}
-
-	b, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	log.SetRespBody(string(b))
-
-	return b, nil
+	return c.gateway + "?" + query, nil
 }
 
 // Encrypt 数据加密

@@ -244,7 +244,7 @@ func (c *ClientV3) PostEncrypt(ctx context.Context, path string, params X, optio
 	return ret, nil
 }
 
-// Upload 上传资源
+// Upload 文件上传，参考：https://opendocs.alipay.com/open-v3/054oog?pathHash=7834d743
 func (c *ClientV3) Upload(ctx context.Context, path string, form UploadForm, options ...V3HeaderOption) (*APIResult, error) {
 	reqID := uuid.NewString()
 	reqURL := c.URL(path, nil)
@@ -267,7 +267,7 @@ func (c *ClientV3) Upload(ctx context.Context, path string, form UploadForm, opt
 
 	log.SetReqHeader(reqHeader)
 
-	resp, err := c.httpCli.Do(ctx, http.MethodPost, reqURL, nil, HeaderToHttpOption(reqHeader)...)
+	resp, err := c.httpCli.Upload(ctx, reqURL, form, HeaderToHttpOption(reqHeader)...)
 	if err != nil {
 		return nil, err
 	}
