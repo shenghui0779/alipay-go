@@ -319,7 +319,23 @@ func NewClient(appid, aesKey string, options ...Option) *Client {
 	c := &Client{
 		appid:   appid,
 		aesKey:  aesKey,
-		gateway: "https://openapi.alipay.com/gateway.do",
+		gateway: "https://openapi.alipay.com/gateway.do?charset=utf-8",
+		httpCli: NewDefaultHTTPClient(),
+	}
+
+	for _, f := range options {
+		f(c)
+	}
+
+	return c
+}
+
+// NewSandbox 生成支付宝沙箱环境
+func NewSandbox(appid, aesKey string, options ...Option) *Client {
+	c := &Client{
+		appid:   appid,
+		aesKey:  aesKey,
+		gateway: "https://openapi-sandbox.dl.alipaydev.com/gateway.do?charset=utf-8",
 		httpCli: NewDefaultHTTPClient(),
 	}
 
