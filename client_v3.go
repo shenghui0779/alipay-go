@@ -71,12 +71,13 @@ func (c *ClientV3) do(ctx context.Context, method, path string, query url.Values
 		log.SetReqBody(string(body))
 
 		if len(header.Get(HeaderEncryptType)) != 0 {
-			body, err = c.Encrypt(string(body))
+			encryptData, err := c.Encrypt(string(body))
 			if err != nil {
 				return nil, err
 			}
 
-			log.Set("encrypt", string(body))
+			body = []byte(encryptData)
+			log.Set("encrypt", encryptData)
 		}
 	}
 
@@ -296,15 +297,20 @@ func (c *ClientV3) Verify(header http.Header, body []byte) error {
 }
 
 // Encrypt 数据加密
-func (c *ClientV3) Encrypt(plainText string) ([]byte, error) {
+func (c *ClientV3) Encrypt(plainText string) (string, error) {
 	key, err := base64.StdEncoding.DecodeString(c.aesKey)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	cbc := NewAesCBC(key, []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, AES_PKCS5)
 
-	return cbc.Encrypt([]byte(plainText))
+	b, err := cbc.Encrypt([]byte(plainText))
+	if err != nil {
+		return "", err
+	}
+
+	return base64.StdEncoding.EncodeToString(b), nil
 }
 
 // Decrypt 数据解密
