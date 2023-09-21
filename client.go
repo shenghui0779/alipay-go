@@ -32,7 +32,9 @@ func (c *Client) AppID() string {
 
 // Do 向支付宝网关发送请求
 func (c *Client) Do(ctx context.Context, method string, options ...ActionOption) (gjson.Result, error) {
-	log := NewReqLog(http.MethodPost, c.gateway)
+	reqURL := c.gateway + "?charset=utf-8"
+
+	log := NewReqLog(http.MethodPost, reqURL)
 	defer log.Do(ctx, c.logger)
 
 	action := NewAction(method, options...)
@@ -44,7 +46,7 @@ func (c *Client) Do(ctx context.Context, method string, options ...ActionOption)
 
 	log.SetReqBody(body)
 
-	resp, err := c.httpCli.Do(ctx, http.MethodPost, c.gateway, []byte(body),
+	resp, err := c.httpCli.Do(ctx, http.MethodPost, reqURL, []byte(body),
 		WithHTTPHeader(HeaderAccept, "application/json"),
 		WithHTTPHeader(HeaderContentType, ContentForm),
 	)
@@ -319,7 +321,7 @@ func NewClient(appid, aesKey string, options ...Option) *Client {
 	c := &Client{
 		appid:   appid,
 		aesKey:  aesKey,
-		gateway: "https://openapi.alipay.com/gateway.do?charset=utf-8",
+		gateway: "https://openapi.alipay.com/gateway.do",
 		httpCli: NewDefaultHTTPClient(),
 	}
 
@@ -335,7 +337,7 @@ func NewSandbox(appid, aesKey string, options ...Option) *Client {
 	c := &Client{
 		appid:   appid,
 		aesKey:  aesKey,
-		gateway: "https://openapi-sandbox.dl.alipaydev.com/gateway.do?charset=utf-8",
+		gateway: "https://openapi-sandbox.dl.alipaydev.com/gateway.do",
 		httpCli: NewDefaultHTTPClient(),
 	}
 
