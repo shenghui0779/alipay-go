@@ -34,8 +34,7 @@ func (c *ClientV3) AppID() string {
 	return c.appid
 }
 
-// URL 生成请求URL
-func (c *ClientV3) URL(path string, query url.Values) string {
+func (c *ClientV3) url(path string, query url.Values) string {
 	var builder strings.Builder
 
 	builder.WriteString(c.host)
@@ -52,31 +51,45 @@ func (c *ClientV3) URL(path string, query url.Values) string {
 	return builder.String()
 }
 
-// GetJSON GET请求JSON数据
-func (c *ClientV3) GetJSON(ctx context.Context, path string, query url.Values, options ...V3HeaderOption) (*APIResult, error) {
-	reqID := uuid.NewString()
-	reqURL := c.URL(path, query)
+func (c *ClientV3) do(ctx context.Context, method, path string, query url.Values, params X, header http.Header) (*APIResult, error) {
+	reqURL := c.url(path, query)
 
-	log := NewReqLog(http.MethodGet, reqURL)
+	log := NewReqLog(method, reqURL)
 	defer log.Do(ctx, c.logger)
 
-	reqHeader := http.Header{}
+	var (
+		body []byte
+		err  error
+	)
 
-	reqHeader.Set(HeaderAccept, "application/json")
-	reqHeader.Set(HeaderRequestID, reqID)
-	for _, f := range options {
-		f(reqHeader)
+	if params != nil {
+		body, err = json.Marshal(params)
+		if err != nil {
+			return nil, err
+		}
+
+		log.SetReqBody(string(body))
+
+		if len(header.Get(HeaderEncryptType)) != 0 {
+			encryptData, err := c.Encrypt(string(body))
+			if err != nil {
+				return nil, err
+			}
+
+			body = []byte(encryptData)
+			log.Set("encrypt", encryptData)
+		}
 	}
 
-	authStr, err := c.Authorization(http.MethodGet, path, query, nil, reqHeader)
+	authStr, err := c.Authorization(method, path, query, body, header)
 	if err != nil {
 		return nil, err
 	}
-	reqHeader.Set(HeaderAuthorization, authStr)
+	header.Set(HeaderAuthorization, authStr)
 
-	log.SetReqHeader(reqHeader)
+	log.SetReqHeader(header)
 
-	resp, err := c.httpCli.Do(ctx, http.MethodGet, reqURL, nil, HeaderToHttpOption(reqHeader)...)
+	resp, err := c.httpCli.Do(ctx, method, reqURL, body, HeaderToHttpOption(header)...)
 	if err != nil {
 		return nil, err
 	}
@@ -102,152 +115,68 @@ func (c *ClientV3) GetJSON(ctx context.Context, path string, query url.Values, o
 		Body: gjson.ParseBytes(b),
 	}
 
-	return ret, nil
-}
-
-// PostJSON POST请求JSON数据
-func (c *ClientV3) PostJSON(ctx context.Context, path string, params X, options ...V3HeaderOption) (*APIResult, error) {
-	reqID := uuid.NewString()
-	reqURL := c.URL(path, nil)
-
-	log := NewReqLog(http.MethodPost, reqURL)
-	defer log.Do(ctx, c.logger)
-
-	body, err := json.Marshal(params)
-	if err != nil {
-		return nil, err
-	}
-
-	log.SetReqBody(string(body))
-
-	reqHeader := http.Header{}
-
-	reqHeader.Set(HeaderAccept, "application/json")
-	reqHeader.Set(HeaderRequestID, reqID)
-	reqHeader.Set(HeaderContentType, ContentJSON)
-	for _, f := range options {
-		f(reqHeader)
-	}
-
-	authStr, err := c.Authorization(http.MethodPost, path, nil, body, reqHeader)
-	if err != nil {
-		return nil, err
-	}
-	reqHeader.Set(HeaderAuthorization, authStr)
-
-	log.SetReqHeader(reqHeader)
-
-	resp, err := c.httpCli.Do(ctx, http.MethodPost, reqURL, body, HeaderToHttpOption(reqHeader)...)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	log.SetRespHeader(resp.Header)
-	log.SetStatusCode(resp.StatusCode)
-
-	b, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	log.SetRespBody(string(b))
-
-	// 签名校验
-	if err = c.Verify(resp.Header, b); err != nil {
-		return nil, err
-	}
-
-	ret := &APIResult{
-		Code: resp.StatusCode,
-		Body: gjson.ParseBytes(b),
-	}
-
-	return ret, nil
-}
-
-// PostJSON POST加密请求
-func (c *ClientV3) PostEncrypt(ctx context.Context, path string, params X, options ...V3HeaderOption) (*APIResult, error) {
-	reqID := uuid.NewString()
-	reqURL := c.URL(path, nil)
-
-	log := NewReqLog(http.MethodPost, reqURL)
-	defer log.Do(ctx, c.logger)
-
-	body, err := json.Marshal(params)
-	if err != nil {
-		return nil, err
-	}
-
-	log.SetReqBody(string(body))
-
-	encryptData, err := c.Encrypt(string(body))
-	if err != nil {
-		return nil, err
-	}
-	log.Set("encrypt", string(encryptData))
-
-	reqHeader := http.Header{}
-
-	reqHeader.Set(HeaderRequestID, reqID)
-	reqHeader.Set(HeaderEncryptType, "AES")
-	reqHeader.Set(HeaderContentType, ContentText)
-	for _, f := range options {
-		f(reqHeader)
-	}
-
-	authStr, err := c.Authorization(http.MethodPost, path, nil, encryptData, reqHeader)
-	if err != nil {
-		return nil, err
-	}
-	reqHeader.Set(HeaderAuthorization, authStr)
-
-	log.SetReqHeader(reqHeader)
-
-	resp, err := c.httpCli.Do(ctx, http.MethodPost, reqURL, []byte(encryptData), HeaderToHttpOption(reqHeader)...)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	log.SetRespHeader(resp.Header)
-	log.SetStatusCode(resp.StatusCode)
-
-	b, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	log.SetRespBody(string(b))
-
-	// 签名校验
-	if err = c.Verify(resp.Header, b); err != nil {
-		return nil, err
-	}
-
-	ret := &APIResult{
-		Code: resp.StatusCode,
-		Body: gjson.ParseBytes(b),
-	}
-
+	// 如果是加密请求，需要解密
 	if resp.StatusCode < 400 && len(b) != 0 && !bytes.HasPrefix(b, []byte("{")) {
 		data, err := c.Decrypt(string(b))
 		if err != nil {
 			return nil, err
 		}
 
-		log.Set("decrypt", string(b))
-
+		log.Set("decrypt", string(data))
 		ret.Body = gjson.ParseBytes(data)
 	}
 
 	return ret, nil
 }
 
+// GetJSON GET请求JSON数据
+func (c *ClientV3) GetJSON(ctx context.Context, path string, query url.Values, options ...V3HeaderOption) (*APIResult, error) {
+	header := http.Header{}
+
+	header.Set(HeaderAccept, "application/json")
+	header.Set(HeaderRequestID, uuid.NewString())
+
+	for _, f := range options {
+		f(header)
+	}
+
+	return c.do(ctx, http.MethodGet, path, query, nil, header)
+}
+
+// PostJSON POST请求JSON数据
+func (c *ClientV3) PostJSON(ctx context.Context, path string, params X, options ...V3HeaderOption) (*APIResult, error) {
+	header := http.Header{}
+
+	header.Set(HeaderAccept, "application/json")
+	header.Set(HeaderRequestID, uuid.NewString())
+	header.Set(HeaderContentType, ContentJSON)
+
+	for _, f := range options {
+		f(header)
+	}
+
+	return c.do(ctx, http.MethodPost, path, nil, params, header)
+}
+
+// PostJSON POST加密请求
+func (c *ClientV3) PostEncrypt(ctx context.Context, path string, params X, options ...V3HeaderOption) (*APIResult, error) {
+	header := http.Header{}
+
+	header.Set(HeaderRequestID, uuid.NewString())
+	header.Set(HeaderEncryptType, "AES")
+	header.Set(HeaderContentType, ContentText)
+
+	for _, f := range options {
+		f(header)
+	}
+
+	return c.do(ctx, http.MethodPost, path, nil, params, header)
+}
+
 // Upload 文件上传，参考：https://opendocs.alipay.com/open-v3/054oog?pathHash=7834d743
 func (c *ClientV3) Upload(ctx context.Context, path string, form UploadForm, options ...V3HeaderOption) (*APIResult, error) {
 	reqID := uuid.NewString()
-	reqURL := c.URL(path, nil)
+	reqURL := c.url(path, nil)
 
 	log := NewReqLog(http.MethodPost, reqURL)
 	defer log.Do(ctx, c.logger)
@@ -368,15 +297,20 @@ func (c *ClientV3) Verify(header http.Header, body []byte) error {
 }
 
 // Encrypt 数据加密
-func (c *ClientV3) Encrypt(plainText string) ([]byte, error) {
+func (c *ClientV3) Encrypt(plainText string) (string, error) {
 	key, err := base64.StdEncoding.DecodeString(c.aesKey)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	cbc := NewAesCBC(key, []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, AES_PKCS5)
 
-	return cbc.Encrypt([]byte(plainText))
+	b, err := cbc.Encrypt([]byte(plainText))
+	if err != nil {
+		return "", err
+	}
+
+	return base64.StdEncoding.EncodeToString(b), nil
 }
 
 // Decrypt 数据解密

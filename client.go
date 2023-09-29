@@ -39,7 +39,7 @@ func (c *Client) Do(ctx context.Context, method string, options ...ActionOption)
 
 	action := NewAction(method, options...)
 
-	body, err := action.Encode(c.appid, c.aesKey, c.prvKey)
+	body, err := action.Encode(c)
 	if err != nil {
 		return fail(err)
 	}
@@ -101,7 +101,7 @@ func (c *Client) Upload(ctx context.Context, method string, form UploadForm, opt
 
 	action := NewAction(method, options...)
 
-	query, err := action.Encode(c.appid, c.aesKey, c.prvKey)
+	query, err := action.Encode(c)
 	if err != nil {
 		return fail(err)
 	}
@@ -195,7 +195,7 @@ func (c *Client) verifyResp(key string, body []byte) (gjson.Result, error) {
 func (c *Client) PageExecute(method string, options ...ActionOption) (string, error) {
 	action := NewAction(method, options...)
 
-	query, err := action.Encode(c.appid, c.aesKey, c.prvKey)
+	query, err := action.Encode(c)
 	if err != nil {
 		return "", err
 	}
@@ -204,35 +204,40 @@ func (c *Client) PageExecute(method string, options ...ActionOption) (string, er
 }
 
 // Encrypt 数据加密
-func (c *Client) Encrypt(plainText string) ([]byte, error) {
+func (c *Client) Encrypt(plainText string) (string, error) {
 	key, err := base64.StdEncoding.DecodeString(c.aesKey)
 	if err != nil {
-		return nil, err
+		return "", fmt.Errorf("aes_key base64.decode error: %w", err)
 	}
 
 	cbc := NewAesCBC(key, []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, AES_PKCS5)
 
-	return cbc.Encrypt([]byte(plainText))
+	b, err := cbc.Encrypt([]byte(plainText))
+	if err != nil {
+		return "", err
+	}
+
+	return base64.StdEncoding.EncodeToString(b), nil
 }
 
 // Decrypt 数据解密
 func (c *Client) Decrypt(encryptData string) ([]byte, error) {
 	key, err := base64.StdEncoding.DecodeString(c.aesKey)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("aes_key base64.decode error: %w", err)
 	}
 
 	cbc := NewAesCBC(key, []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, AES_PKCS5)
 
 	cipherText, err := base64.StdEncoding.DecodeString(encryptData)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("encrypt_data base64.decode error: %w", err)
 	}
 
 	return cbc.Decrypt(cipherText)
 }
 
-// DecodeEncryptData 解析加密数据
+// DecodeEncryptData 解析加密数据，如：授权的用户信息和手机号
 func (c *Client) DecodeEncryptData(hash crypto.Hash, data, sign string) ([]byte, error) {
 	if c.pubKey == nil {
 		return nil, errors.New("public key is nil (forgotten configure?)")
@@ -240,11 +245,11 @@ func (c *Client) DecodeEncryptData(hash crypto.Hash, data, sign string) ([]byte,
 
 	signByte, err := base64.StdEncoding.DecodeString(sign)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("sign base64.decode error: %w", err)
 	}
 
 	if err = c.pubKey.Verify(hash, []byte(`"`+data+`"`), signByte); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("sign verified error: %w", err)
 	}
 
 	return c.Decrypt(data)

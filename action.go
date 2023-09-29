@@ -23,14 +23,14 @@ func (a *Action) RespKey() string {
 }
 
 // Encode 签名并生成请求Body
-func (a *Action) Encode(appid, aesKey string, key *PrivateKey) (string, error) {
-	if key == nil {
+func (a *Action) Encode(c *Client) (string, error) {
+	if c.prvKey == nil {
 		return "", errors.New("private key is nil (forgotten configure?)")
 	}
 
 	v := make(V)
 
-	v.Set("app_id", appid)
+	v.Set("app_id", c.appid)
 	v.Set("method", a.method)
 	v.Set("format", "JSON")
 	v.Set("charset", "utf-8")
@@ -42,13 +42,25 @@ func (a *Action) Encode(appid, aesKey string, key *PrivateKey) (string, error) {
 		v.Set(key, val)
 	}
 
-	bizContent, err := a.buildBizContent(aesKey)
-	if err != nil {
-		return "", err
-	}
-	v.Set("biz_content", bizContent)
+	if len(a.bizData) != 0 {
+		bizByte, err := json.Marshal(a.bizData)
+		if err != nil {
+			return "", err
+		}
 
-	sign, err := key.Sign(crypto.SHA256, []byte(v.Encode("=", "&", WithEmptyEncMode(EmptyEncIgnore))))
+		bizContent := string(bizByte)
+
+		if a.encrypt {
+			bizContent, err = c.Encrypt(bizContent)
+			if err != nil {
+				return "", err
+			}
+		}
+
+		v.Set("biz_content", bizContent)
+	}
+
+	sign, err := c.prvKey.Sign(crypto.SHA256, []byte(v.Encode("=", "&", WithEmptyEncMode(EmptyEncIgnore))))
 	if err != nil {
 		return "", err
 	}
@@ -56,35 +68,6 @@ func (a *Action) Encode(appid, aesKey string, key *PrivateKey) (string, error) {
 	v.Set("sign", base64.StdEncoding.EncodeToString(sign))
 
 	return v.Encode("=", "&", WithEmptyEncMode(EmptyEncIgnore), WithKVEscape()), nil
-}
-
-func (a *Action) buildBizContent(aesKey string) (string, error) {
-	if len(a.bizData) == 0 {
-		return "", nil
-	}
-
-	bizByte, err := json.Marshal(a.bizData)
-	if err != nil {
-		return "", err
-	}
-
-	if !a.encrypt {
-		return string(bizByte), nil
-	}
-
-	key, err := base64.StdEncoding.DecodeString(aesKey)
-	if err != nil {
-		return "", err
-	}
-
-	cbc := NewAesCBC(key, []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, AES_PKCS5)
-
-	b, err := cbc.Encrypt(bizByte)
-	if err != nil {
-		return "", err
-	}
-
-	return base64.StdEncoding.EncodeToString(b), nil
 }
 
 // ActionOption Action选项
