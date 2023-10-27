@@ -2,36 +2,21 @@ package alipay
 
 import (
 	"crypto"
-	"crypto/aes"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
-func TestAesCBC(t *testing.T) {
+func TestAesCbcCrypto(t *testing.T) {
 	key := []byte("AES256Key-32Characters1234567890")
-	iv := key[:aes.BlockSize]
-	plainText := "ILoveYiigo"
+	data := "ILoveYiigo"
 
-	// pkcs#5
-	pkcs5 := NewAesCBC(key, iv, AES_PKCS5())
-
-	e5b, err := pkcs5.Encrypt([]byte(plainText))
+	cipher, err := AesCbcEncrypt(key, []byte(data))
 	assert.Nil(t, err)
 
-	d5b, err := pkcs5.Decrypt(e5b)
+	plain, err := AesCbcDecrypt(key, cipher)
 	assert.Nil(t, err)
-	assert.Equal(t, plainText, string(d5b))
-
-	// pkcs#7
-	pkcs7 := NewAesCBC(key, iv, AES_PKCS7(32))
-
-	e7b, err := pkcs7.Encrypt([]byte(plainText))
-	assert.Nil(t, err)
-
-	d7b, err := pkcs7.Decrypt(e7b)
-	assert.Nil(t, err)
-	assert.Equal(t, plainText, string(d7b))
+	assert.Equal(t, data, string(plain))
 }
 
 func TestRSACrypto(t *testing.T) {
