@@ -96,13 +96,12 @@ func LoadCertFromPfxFile(filename, password string) (tls.Certificate, error) {
 }
 
 // FormatPKCS1PrivateKey 格式化支付宝应用私钥(PKCS#1)
-func FormatPKCS1PrivateKey(pemStr string) (RSAPaddingMode, []byte) {
+func FormatPKCS1PrivateKey(pemStr string) (RSAPadding, []byte) {
 	rawLen := 64
 	keyLen := len(pemStr)
 
 	raws := keyLen / rawLen
 	temp := keyLen % rawLen
-
 	if temp > 0 {
 		raws++
 	}
@@ -133,13 +132,12 @@ func FormatPKCS1PrivateKey(pemStr string) (RSAPaddingMode, []byte) {
 }
 
 // FormatPKCS8PrivateKey 格式化支付宝应用私钥(PKCS#8)
-func FormatPKCS8PrivateKey(pemStr string) (RSAPaddingMode, []byte) {
+func FormatPKCS8PrivateKey(pemStr string) (RSAPadding, []byte) {
 	rawLen := 64
 	keyLen := len(pemStr)
 
 	raws := keyLen / rawLen
 	temp := keyLen % rawLen
-
 	if temp > 0 {
 		raws++
 	}
@@ -170,13 +168,12 @@ func FormatPKCS8PrivateKey(pemStr string) (RSAPaddingMode, []byte) {
 }
 
 // FormatPKCS1PublicKey 格式化支付宝应用公钥(PKCS#1)
-func FormatPKCS1PublicKey(pemStr string) (RSAPaddingMode, []byte) {
+func FormatPKCS1PublicKey(pemStr string) (RSAPadding, []byte) {
 	rawLen := 64
 	keyLen := len(pemStr)
 
 	raws := keyLen / rawLen
 	temp := keyLen % rawLen
-
 	if temp > 0 {
 		raws++
 	}
@@ -207,13 +204,12 @@ func FormatPKCS1PublicKey(pemStr string) (RSAPaddingMode, []byte) {
 }
 
 // FormatPKCS8PublicKey 格式化支付宝应用公钥(PKCS#8)
-func FormatPKCS8PublicKey(pemStr string) (RSAPaddingMode, []byte) {
+func FormatPKCS8PublicKey(pemStr string) (RSAPadding, []byte) {
 	rawLen := 64
 	keyLen := len(pemStr)
 
 	raws := keyLen / rawLen
 	temp := keyLen % rawLen
-
 	if temp > 0 {
 		raws++
 	}

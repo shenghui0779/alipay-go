@@ -209,8 +209,9 @@ func (c *Client) Encrypt(plainText string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("aes_key base64.decode error: %w", err)
 	}
+	iv := []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 
-	cbc := NewAesCBC(key, []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, AES_PKCS5)
+	cbc := NewAesCBC(key, iv, AES_PKCS5())
 
 	b, err := cbc.Encrypt([]byte(plainText))
 	if err != nil {
@@ -226,8 +227,9 @@ func (c *Client) Decrypt(encryptData string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("aes_key base64.decode error: %w", err)
 	}
+	iv := []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 
-	cbc := NewAesCBC(key, []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, AES_PKCS5)
+	cbc := NewAesCBC(key, iv, AES_PKCS5())
 
 	cipherText, err := base64.StdEncoding.DecodeString(encryptData)
 	if err != nil {
