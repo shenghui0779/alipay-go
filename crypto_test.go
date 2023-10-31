@@ -10,14 +10,13 @@ import (
 
 func TestAesCBC(t *testing.T) {
 	key := "AES256Key-32Characters1234567890"
-	iv := key[:16]
 	data := "IloveYiigo"
 
-	cipher, err := AESEncryptCBC([]byte(key), []byte(iv), []byte(data))
+	cipher, err := AESEncryptCBC([]byte(key), []byte(data))
 	assert.Nil(t, err)
-	assert.Equal(t, "inYubOX1oU15tRN8itajQw==", cipher)
+	assert.Equal(t, "3/UUhzaz+sjn3UW64/reaw==", base64.StdEncoding.EncodeToString(cipher))
 
-	plain, err := AESDecryptCBC([]byte(key), []byte(iv), cipher)
+	plain, err := AESDecryptCBC([]byte(key), cipher)
 	assert.Nil(t, err)
 	assert.Equal(t, data, string(plain))
 }

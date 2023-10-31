@@ -297,16 +297,13 @@ func (c *ClientV3) Verify(header http.Header, body []byte) error {
 }
 
 // Encrypt 数据加密
-func (c *ClientV3) Encrypt(plainText string) (string, error) {
+func (c *ClientV3) Encrypt(data string) (string, error) {
 	key, err := base64.StdEncoding.DecodeString(c.aesKey)
 	if err != nil {
 		return "", err
 	}
-	iv := []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 
-	cbc := NewAesCBC(key, iv, AES_PKCS5())
-
-	b, err := cbc.Encrypt([]byte(plainText))
+	b, err := AESEncryptCBC(key, []byte(data))
 	if err != nil {
 		return "", err
 	}
@@ -320,16 +317,13 @@ func (c *ClientV3) Decrypt(encryptData string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	iv := []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 
-	cbc := NewAesCBC(key, iv, AES_PKCS5())
-
-	cipherText, err := base64.StdEncoding.DecodeString(encryptData)
+	data, err := base64.StdEncoding.DecodeString(encryptData)
 	if err != nil {
 		return nil, err
 	}
 
-	return cbc.Decrypt(cipherText)
+	return AESDecryptCBC(key, data)
 }
 
 // V3Option 自定义设置项

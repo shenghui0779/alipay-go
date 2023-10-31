@@ -204,16 +204,13 @@ func (c *Client) PageExecute(method string, options ...ActionOption) (string, er
 }
 
 // Encrypt 数据加密
-func (c *Client) Encrypt(plainText string) (string, error) {
+func (c *Client) Encrypt(data string) (string, error) {
 	key, err := base64.StdEncoding.DecodeString(c.aesKey)
 	if err != nil {
 		return "", fmt.Errorf("aes_key base64.decode error: %w", err)
 	}
-	iv := []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 
-	cbc := NewAesCBC(key, iv, AES_PKCS5())
-
-	b, err := cbc.Encrypt([]byte(plainText))
+	b, err := AESEncryptCBC(key, []byte(data))
 	if err != nil {
 		return "", err
 	}
@@ -227,16 +224,13 @@ func (c *Client) Decrypt(encryptData string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("aes_key base64.decode error: %w", err)
 	}
-	iv := []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 
-	cbc := NewAesCBC(key, iv, AES_PKCS5())
-
-	cipherText, err := base64.StdEncoding.DecodeString(encryptData)
+	data, err := base64.StdEncoding.DecodeString(encryptData)
 	if err != nil {
 		return nil, fmt.Errorf("encrypt_data base64.decode error: %w", err)
 	}
 
-	return cbc.Decrypt(cipherText)
+	return AESDecryptCBC(key, data)
 }
 
 // DecodeEncryptData 解析加密数据，如：授权的用户信息和手机号
