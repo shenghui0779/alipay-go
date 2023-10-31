@@ -10,11 +10,11 @@ import (
 
 func TestAesCBC(t *testing.T) {
 	key := "AES256Key-32Characters1234567890"
-	data := "IloveYiigo"
+	data := "ILoveYiigo"
 
 	cipher, err := AESEncryptCBC([]byte(key), []byte(data))
 	assert.Nil(t, err)
-	assert.Equal(t, "3/UUhzaz+sjn3UW64/reaw==", base64.StdEncoding.EncodeToString(cipher))
+	assert.Equal(t, "8+evCMirn78a5l2mCCdJug==", base64.StdEncoding.EncodeToString(cipher))
 
 	plain, err := AESDecryptCBC([]byte(key), cipher)
 	assert.Nil(t, err)
@@ -120,7 +120,7 @@ t6RsET7ZhCU8m8/6gIS5lZRoJt1aoqL3UyfFdWVA8pZwihDnEHvp1+0yl2BBaAN1
 Vv8zI7kt+uZxD5mBGglKs2wzaHqADBXa5kSznIvkcZSg07UQQYU6
 -----END RSA PRIVATE KEY-----`)
 
-	data := "IloveYiigo"
+	data := "ILoveYiigo"
 
 	pvtKey, err := NewPrivateKeyFromPemBlock(RSA_PKCS1, privateKey)
 	assert.Nil(t, err)
@@ -130,11 +130,11 @@ Vv8zI7kt+uZxD5mBGglKs2wzaHqADBXa5kSznIvkcZSg07UQQYU6
 
 	sign, err := pvtKey.Sign(crypto.SHA1, []byte(data))
 	assert.Nil(t, err)
-	assert.Equal(t, "PwvY/t/4Ip0knoDgPpJmLoI7E48RcrsXi/IRKMM5USqmJbXk/gIMkzZqRNzczYIiBxsClErjOzeXZm453RSS/kfjCDtOt8vLaLPaanWL2GXFQIqH47j7m3o2kJMquUMgQQ2Nevhl6nI/J0+gTVX5om18Jz/lVWRfCqBUjI74ikWpWY17zgg6qifc6hh8FSbK1P90603aytpoj1NJdHnkTiSxHnPFclMlh1dmzuDdYZ29VCzQ1Hdx9WPeaYAvvHxMTD6/DX+EIsSOXVsRYxJthItkVWq0DUWk0mgHdapDwNWdYNkz3ocLgZQtio0cOMXQReXg+U3dj6bG07umD9oNdA==", base64.StdEncoding.EncodeToString(sign))
+	assert.Equal(t, "WVMAlTchbwf07SDkd01amR8C2SqxKX7iamonTQJfxWuY8eq8oMjiS+KP9P66Rdfyzi44JpUjtyy2B1jJZ4WziFp8CJuIEPOB1VxCRB7Uo14Lzy/w/kJPkCukbepSNEA6D72Bn5uq8USyHCNfRiNe/iEEHU16DSP2rUEdVQ02AOiBs/uZcqMM7ZdfBjGug7+ig5fFxpcw/6eIGMmIm9kyBAYqwzRTckpRntF1FEHYPiw5SZoDp8PQb1agn+/WegM0KWLiaUH/sqDHC6oIrRPfFEwG8hLzAA1MT79SHbXoktsIgFnLbE8TFiojDsI4E/74O5odyI6ULC+OI5DfZwwaBg==", base64.StdEncoding.EncodeToString(sign))
 	assert.Nil(t, pubKey.Verify(crypto.SHA1, []byte(data), sign))
 
 	sign2, err := pvtKey.Sign(crypto.SHA256, []byte(data))
 	assert.Nil(t, err)
-	assert.Equal(t, "Az5weSanCfH+Zumddj2OmU1x7PMkxWoSrzeQVMeBGmtI2Ruxgr7a4t/A8tBlXVsfo+xlRRfg5iKOeTzb6Eor0Pdt2cIR/Ui2PuZiUW3sF7N8jKBKavqKMSX/y11RNys/No0jKAGdfaaq4D2kNVbUaPQQCepauImMzdimvnmL4xZnmCL4HE8W8COqLM3HMOxnDGtPCzDOp6VNfHg/T0gIBvGryUxONn5RJ+IRRvO6OOVL1T4WDrlvfC+qjQp6Fqz8Ffyi5urFEQkJQst/QNhcvO1hDSAtgZL5/SgVleYXQGjGagg5J9vkhH9N5stkYgU1nJi6UHeO4xg6W7U9tKsdCQ==", base64.StdEncoding.EncodeToString(sign2))
+	assert.Equal(t, "er5a6N6dQMkCKxIKLUrIcQYNsUAEhy+e0YIFbFF4lG2+IwgXBwe3StZOUvh1vPXbSu/dr/lGCDXTrqzRoWQyeyEZ5T8qmDHENXNMySCq9FJrrGLORnJlmKgg48UEJfGvgCLqdZudPZUHbmDgxm7bkqtDZEV4gHgr5zdRVoJJdDqsH1CfFQMFdoCLXybTmUHuQSZ20Qpdd79GXScMITdqTccYGHINTWtXTSPvBmWLxY7C7YaMQ6HJbshstHbGXOP0uSio6+a4pVoZmMd1F2knZL63Ew5/y5A8vjXYeC5W+1F3KY9Pd6ne3SdCvDzSpYFTsks4lrwCERd2MwxS8uXqfg==", base64.StdEncoding.EncodeToString(sign2))
 	assert.Nil(t, pubKey.Verify(crypto.SHA256, []byte(data), sign2))
 }
