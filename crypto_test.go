@@ -120,7 +120,7 @@ t6RsET7ZhCU8m8/6gIS5lZRoJt1aoqL3UyfFdWVA8pZwihDnEHvp1+0yl2BBaAN1
 Vv8zI7kt+uZxD5mBGglKs2wzaHqADBXa5kSznIvkcZSg07UQQYU6
 -----END RSA PRIVATE KEY-----`)
 
-	data := "ILoveYiigo"
+	data := "IloveYiigo"
 
 	pvtKey, err := NewPrivateKeyFromPemBlock(RSA_PKCS1, privateKey)
 	assert.Nil(t, err)
