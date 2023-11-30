@@ -19,4 +19,5 @@ go get -u github.com/shenghui0779/alipay-go
   * alipay.trade.page.pay(统一收单下单并支付页面接口)
   * alipay.user.certify.open.certify(身份认证开始认证)
 - 验证回调通知，使用 `Client.VerifyNotify(...)`
+- JSON结果均以 `gjson.Result` 返回，理论上支持所有 JSON API
 - 解析加密数据，如：授权的用户信息和手机号，使用 `Client.DecodeEncryptData(...)`
