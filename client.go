@@ -272,7 +272,7 @@ func (c *Client) VerifyNotify(form url.Values) (V, error) {
 		v.Set(key, vals[0])
 	}
 
-	str := v.Encode("=", "&", WithEmptyEncMode(EmptyEncIgnore))
+	str := v.Encode("=", "&", WithEmptyMode(EmptyIgnore))
 
 	hash := crypto.SHA256
 	if form.Get("sign_type") == "RSA" {
