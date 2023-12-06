@@ -26,7 +26,6 @@ func WithHTTPHeader(key string, vals ...string) HTTPOption {
 	return func(o *httpOptions) {
 		if len(vals) == 1 {
 			o.header.Set(key, vals[0])
-
 			return
 		}
 
